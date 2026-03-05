@@ -69,8 +69,8 @@ export default function Home() {
       <div className="hidden lg:flex lg:flex-col lg:w-80 border-r bg-sidebar">
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <FileText className="w-4 h-4 text-primary-foreground" />
+            <div className="w-8 h-8 rounded-md bg-[hsl(22,100%,50%)] flex items-center justify-center">
+              <FileText className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-lg font-semibold text-sidebar-foreground" data-testid="text-app-title">
               Agile Artifact Analyzer
@@ -93,8 +93,8 @@ export default function Home() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center justify-between gap-1 p-3 border-b lg:hidden">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-              <FileText className="w-3.5 h-3.5 text-primary-foreground" />
+            <div className="w-7 h-7 rounded-md bg-[hsl(22,100%,50%)] flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5 text-white" />
             </div>
             <h1 className="text-base font-semibold" data-testid="text-app-title-mobile">Agile Artifact Analyzer</h1>
           </div>

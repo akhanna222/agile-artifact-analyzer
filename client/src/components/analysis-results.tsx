@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Copy,
   Check,
+  ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -212,6 +213,10 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
 
       <Tabs defaultValue="details" className="w-full">
         <TabsList data-testid="tabs-results">
+          <TabsTrigger value="original" data-testid="tab-original">
+            <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+            Original Content
+          </TabsTrigger>
           <TabsTrigger value="details" data-testid="tab-details">
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Detailed Findings
@@ -223,6 +228,32 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
             </TabsTrigger>
           )}
         </TabsList>
+
+        <TabsContent value="original" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="text-sm font-semibold">
+                    Original {typeLabels[analysis.type] || analysis.type}
+                  </h4>
+                </div>
+                <Badge variant="secondary">{typeLabels[analysis.type] || analysis.type}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="rounded-md bg-accent/50 p-4">
+                <pre
+                  className="whitespace-pre-wrap text-sm font-mono leading-relaxed"
+                  data-testid="text-original-content"
+                >
+                  {analysis.content}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="details" className="mt-4">
           <div className="space-y-4">

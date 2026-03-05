@@ -130,10 +130,10 @@ export function AnalysisForm({ onSubmit, isLoading }: AnalysisFormProps) {
           <Sparkles className="w-7 h-7 text-primary" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight" data-testid="text-page-heading">
-          Analyze Your Agile Artifacts
+          Agile Artifact Analyzer
         </h2>
         <p className="text-muted-foreground max-w-lg mx-auto">
-          Paste your epic, feature, story, or task below and get AI-powered quality analysis with actionable improvement suggestions.
+          Evaluate your epics, features, user stories, and tasks against industry-standard agile methodologies. Get quality scores, findings, and AI-improved versions.
         </p>
       </div>
 

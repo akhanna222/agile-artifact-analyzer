@@ -73,7 +73,7 @@ export default function Home() {
               <FileText className="w-4 h-4 text-primary-foreground" />
             </div>
             <h1 className="text-lg font-semibold text-sidebar-foreground" data-testid="text-app-title">
-              Story Analyzer
+              Agile Artifact Analyzer
             </h1>
           </div>
           <p className="text-xs text-muted-foreground ml-10">
@@ -96,7 +96,7 @@ export default function Home() {
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
               <FileText className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <h1 className="text-base font-semibold" data-testid="text-app-title-mobile">Story Analyzer</h1>
+            <h1 className="text-base font-semibold" data-testid="text-app-title-mobile">Agile Artifact Analyzer</h1>
           </div>
           <Button
             size="icon"

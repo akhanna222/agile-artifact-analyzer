@@ -1,7 +1,7 @@
-# Story Quality Analyzer
+# Agile Artifact Analyzer
 
 ## Overview
-AI-powered Story Quality Analyzer for evaluating agile artifacts (Epics, Features, User Stories, Tasks) against best practices. Uses OpenAI GPT-5.2 via Replit AI Integrations.
+AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories, and Tasks against industry-standard agile methodologies (Scrum, SAFe, Kanban). Uses OpenAI GPT-5.2 via Replit AI Integrations with rigorous methodology guardrails.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Vite with shadcn/ui, TanStack Query, wouter routing
@@ -36,8 +36,9 @@ AI-powered Story Quality Analyzer for evaluating agile artifacts (Epics, Feature
 - PostgreSQL with `analyses` table
 - Uses Drizzle ORM with `drizzle-kit push` for schema management
 
-## Analysis Categories by Type
-- **Epic**: Business Value, Scope, Success Criteria, Decomposability, Risk & Dependencies
-- **Feature**: Capability Description, User Value, Acceptance Criteria, Decomposability, NFRs
-- **Story**: Format & Structure, Independence, Value Proposition, Estimability, Testability
-- **Task**: Clarity, Actionability, Estimation, Completion Criteria, Dependencies
+## Analysis Methodology Guardrails
+Each artifact type is evaluated against strict agile methodology standards (Scrum, SAFe):
+- **Epic**: Business Value & Strategic Alignment, Scope & Boundaries, Success Criteria & KPIs, Feature Decomposition Readiness, Risk/Dependencies & Sizing. Checks for Lean Business Case, OKR alignment, anti-patterns.
+- **Feature**: Benefit Hypothesis & User Value, Strategic Alignment (Epic linkage), Acceptance Criteria & DoD, Story Decomposition Readiness, NFRs & Dependencies. Checks for proper hierarchy placement.
+- **Story**: Story Format (As a/I want/So that), INVEST criteria (all 6: Independent, Negotiable, Valuable, Estimable, Small, Testable), Given/When/Then acceptance criteria, edge cases, DoD. Flags anti-patterns like technical tasks disguised as stories.
+- **Task**: Clarity & Technical Specification, Parent Story Linkage, Effort Estimation (hours-based), Binary Completion Criteria, Dependencies & Technical Approach. Recognizes task types (dev, test, devops, spike).

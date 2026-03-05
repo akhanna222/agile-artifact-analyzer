@@ -1,0 +1,332 @@
+import type { Analysis, AnalysisResult } from "@shared/schema";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Lightbulb,
+  FileText,
+  TrendingUp,
+  Copy,
+  Check,
+} from "lucide-react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+
+interface AnalysisResultsProps {
+  analysis: Analysis;
+  results: AnalysisResult;
+  onBack: () => void;
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+
+  const getColor = (s: number) => {
+    if (s >= 80) return "text-green-500 dark:text-green-400";
+    if (s >= 50) return "text-amber-500 dark:text-amber-400";
+    return "text-red-500 dark:text-red-400";
+  };
+
+  const getStrokeColor = (s: number) => {
+    if (s >= 80) return "stroke-green-500 dark:stroke-green-400";
+    if (s >= 50) return "stroke-amber-500 dark:stroke-amber-400";
+    return "stroke-red-500 dark:stroke-red-400";
+  };
+
+  return (
+    <div className="relative w-36 h-36">
+      <svg className="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          strokeWidth="8"
+          className="stroke-muted"
+        />
+        <motion.circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          className={getStrokeColor(score)}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          style={{ strokeDasharray: circumference }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <motion.span
+          className={`text-3xl font-bold ${getColor(score)}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          data-testid="text-overall-score"
+        >
+          {score}
+        </motion.span>
+        <span className="text-xs text-muted-foreground">out of 100</span>
+      </div>
+    </div>
+  );
+}
+
+function StatusIcon({ status }: { status: string }) {
+  if (status === "pass") return <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400" />;
+  if (status === "warning") return <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400" />;
+  return <XCircle className="w-4 h-4 text-red-500 dark:text-red-400" />;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    pass: "bg-green-500/10 text-green-700 dark:text-green-400",
+    warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    fail: "bg-red-500/10 text-red-700 dark:text-red-400",
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${variants[status] || variants.fail}`} data-testid={`badge-status-${status}`}>
+      {status === "pass" ? "Pass" : status === "warning" ? "Needs Work" : "Fail"}
+    </span>
+  );
+}
+
+function CategoryScoreBar({ score }: { score: number }) {
+  const getColor = (s: number) => {
+    if (s >= 80) return "bg-green-500 dark:bg-green-400";
+    if (s >= 50) return "bg-amber-500 dark:bg-amber-400";
+    return "bg-red-500 dark:bg-red-400";
+  };
+
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full ${getColor(score)}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${score}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        />
+      </div>
+      <span className="text-sm font-medium w-8 text-right">{score}</span>
+    </div>
+  );
+}
+
+export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsProps) {
+  const [copiedImproved, setCopiedImproved] = useState(false);
+
+  const handleCopyImproved = () => {
+    if (results.improvedVersion) {
+      navigator.clipboard.writeText(results.improvedVersion);
+      setCopiedImproved(true);
+      setTimeout(() => setCopiedImproved(false), 2000);
+    }
+  };
+
+  const categories = results.categories || [];
+  const passCount = categories.filter((c) => c.status === "pass").length;
+  const warnCount = categories.filter((c) => c.status === "warning").length;
+  const failCount = categories.filter((c) => c.status === "fail").length;
+
+  const typeLabels: Record<string, string> = {
+    epic: "Epic",
+    feature: "Feature",
+    story: "User Story",
+    task: "Task",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button variant="ghost" size="sm" onClick={onBack} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          New Analysis
+        </Button>
+        <Separator orientation="vertical" className="h-5 hidden sm:block" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="secondary" data-testid="badge-type">
+            {typeLabels[analysis.type] || analysis.type}
+          </Badge>
+          <h2 className="text-lg font-semibold" data-testid="text-analysis-title">{analysis.title}</h2>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="md:col-span-1">
+          <CardContent className="p-6 flex flex-col items-center justify-center">
+            <ScoreRing score={results.overallScore} />
+            <p className="text-sm text-muted-foreground text-center mt-4 max-w-[200px]">
+              Overall Quality Score
+            </p>
+            <div className="flex items-center gap-3 mt-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-500" /> {passCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-amber-500" /> {warnCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <XCircle className="w-3 h-3 text-red-500" /> {failCount}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-2 mb-4">
+              <TrendingUp className="w-4 h-4 text-muted-foreground mt-1 shrink-0" />
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Summary</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-summary">
+                  {results.summary}
+                </p>
+              </div>
+            </div>
+            <Separator className="my-4" />
+            <div className="space-y-3">
+              {categories.map((cat, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <StatusIcon status={cat.status} />
+                  <span className="text-sm min-w-[160px] shrink-0">{cat.name}</span>
+                  <CategoryScoreBar score={cat.score} />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList data-testid="tabs-results">
+          <TabsTrigger value="details" data-testid="tab-details">
+            <FileText className="w-3.5 h-3.5 mr-1.5" />
+            Detailed Findings
+          </TabsTrigger>
+          {results.improvedVersion && (
+            <TabsTrigger value="improved" data-testid="tab-improved">
+              <Lightbulb className="w-3.5 h-3.5 mr-1.5" />
+              Improved Version
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="details" className="mt-4">
+          <div className="space-y-4">
+            {categories.map((cat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <StatusIcon status={cat.status} />
+                        <h4 className="text-sm font-semibold" data-testid={`text-category-${i}`}>{cat.name}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={cat.status} />
+                        <span className="text-sm font-mono font-medium">{cat.score}/100</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-4">
+                    {cat.findings.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                          Findings
+                        </h5>
+                        <ul className="space-y-1.5">
+                          {cat.findings.map((f, j) => (
+                            <li key={j} className="text-sm flex items-start gap-2" data-testid={`text-finding-${i}-${j}`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-1.5 shrink-0" />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {cat.suggestions.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                          Suggestions
+                        </h5>
+                        <ul className="space-y-1.5">
+                          {cat.suggestions.map((s, j) => (
+                            <li key={j} className="text-sm flex items-start gap-2" data-testid={`text-suggestion-${i}-${j}`}>
+                              <Lightbulb className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
+                              {s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </TabsContent>
+
+        {results.improvedVersion && (
+          <TabsContent value="improved" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    <h4 className="text-sm font-semibold">AI-Improved Version</h4>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCopyImproved}
+                    data-testid="button-copy-improved"
+                  >
+                    {copiedImproved ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="rounded-md bg-accent/50 p-4">
+                  <pre
+                    className="whitespace-pre-wrap text-sm font-mono leading-relaxed"
+                    data-testid="text-improved-version"
+                  >
+                    {results.improvedVersion}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}

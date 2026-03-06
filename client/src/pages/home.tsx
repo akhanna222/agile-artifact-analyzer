@@ -48,6 +48,7 @@ export default function Home() {
     onSuccess: (data: Analysis) => {
       setSelectedAnalysis(data);
       queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/usage"] });
       toast({
         title: "Analysis Complete",
         description: `Quality score: ${data.overallScore}/100`,
@@ -68,6 +69,7 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/usage"] });
       if (selectedAnalysis) {
         setSelectedAnalysis(null);
       }

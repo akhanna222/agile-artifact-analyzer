@@ -1,5 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { setupAuth, registerAuthRoutes } from "./auth";
+import { seedAdminUser } from "./seed";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
@@ -60,7 +62,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  setupAuth(app);
+  const { requireAuth } = registerAuthRoutes(app);
+  await seedAdminUser();
+  await registerRoutes(httpServer, app, requireAuth);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

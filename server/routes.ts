@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema, analysisResultSchema, type AnalysisResult } from "@shared/schema";
@@ -182,10 +182,11 @@ ${content}`;
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  requireAuth: RequestHandler
 ): Promise<Server> {
 
-  app.get("/api/analyses", async (_req, res) => {
+  app.get("/api/analyses", requireAuth, async (_req, res) => {
     try {
       const results = await storage.getAnalyses();
       res.json(results);
@@ -195,7 +196,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/analyses/:id", async (req, res) => {
+  app.get("/api/analyses/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const analysis = await storage.getAnalysis(id);
@@ -209,7 +210,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/analyses", async (req, res) => {
+  app.post("/api/analyses", requireAuth, async (req, res) => {
     try {
       const parsed = insertAnalysisSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -280,7 +281,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/analyses/:id", async (req, res) => {
+  app.delete("/api/analyses/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteAnalysis(id);

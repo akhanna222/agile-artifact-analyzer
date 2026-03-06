@@ -7,13 +7,34 @@ import { AnalysisForm } from "@/components/analysis-form";
 import { AnalysisResults } from "@/components/analysis-results";
 import { AnalysisHistory } from "@/components/analysis-history";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, History, ChevronLeft } from "lucide-react";
+import { FileText, History, ChevronLeft, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
+
+interface AuthUser {
+  id: number;
+  email: string;
+  isAdmin: boolean;
+}
 
 export default function Home() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+
+  const { data: user } = useQuery<AuthUser | null>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/auth/logout");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+  });
 
   const { data: analyses = [], isLoading: loadingHistory } = useQuery<Analysis[]>({
     queryKey: ["/api/analyses"],
@@ -76,7 +97,7 @@ export default function Home() {
               Agile Artifact Analyzer
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground ml-10">
+          <p className="text-xs text-sidebar-foreground/50 ml-10">
             AI-Powered Quality Analysis
           </p>
         </div>
@@ -88,6 +109,34 @@ export default function Home() {
           onNewAnalysis={handleNewAnalysis}
           isLoading={loadingHistory}
         />
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          {user?.isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              onClick={() => setLocation("/admin")}
+              data-testid="button-admin"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              User Management
+            </Button>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-sidebar-foreground/50 truncate pl-1" data-testid="text-user-email">
+              {user?.email}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-sidebar-foreground/50 hover:text-sidebar-foreground shrink-0"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -98,14 +147,34 @@ export default function Home() {
             </div>
             <h1 className="text-base font-semibold" data-testid="text-app-title-mobile">Agile Artifact Analyzer</h1>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => setShowHistory(!showHistory)}
-            data-testid="button-toggle-history"
-          >
-            <History className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {user?.isAdmin && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setLocation("/admin")}
+                data-testid="button-admin-mobile"
+              >
+                <Shield className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowHistory(!showHistory)}
+              data-testid="button-toggle-history"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout-mobile"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </header>
 
         {showHistory && (

@@ -27,6 +27,11 @@ export const analyses = pgTable("analyses", {
   overallScore: integer("overall_score"),
   results: jsonb("results"),
   status: text("status").notNull().default("pending"),
+  userId: integer("user_id"),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  totalTokens: integer("total_tokens"),
+  model: text("model"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -36,6 +41,11 @@ export const insertAnalysisSchema = createInsertSchema(analyses).omit({
   overallScore: true,
   results: true,
   status: true,
+  userId: true,
+  promptTokens: true,
+  completionTokens: true,
+  totalTokens: true,
+  model: true,
 });
 
 export type Analysis = typeof analyses.$inferSelect;

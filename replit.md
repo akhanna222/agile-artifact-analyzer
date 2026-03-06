@@ -12,6 +12,8 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 ## Key Features
 - User authentication (login/logout, session-based)
 - Admin user management (create users with auto-generated passwords, delete users)
+- **Usage analytics dashboard** (total analyses, token usage, per-user stats, daily activity, recent analyses)
+- Token tracking per analysis (prompt tokens, completion tokens, total tokens, model)
 - Analyze Epics, Features, User Stories, and Tasks
 - Quality scoring (0-100) with category breakdowns
 - INVEST criteria checking for user stories
@@ -20,13 +22,14 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - Analysis history with persistence
 
 ## File Structure
-- `shared/schema.ts` - Database schema and types (users, analyses tables)
-- `server/auth.ts` - Session setup, auth middleware, auth & admin API routes
+- `shared/schema.ts` - Database schema and types (users, analyses tables with token tracking)
+- `server/auth.ts` - Session setup, auth middleware, auth & admin API routes (incl. usage stats)
 - `server/seed.ts` - Seeds initial admin user on first startup
-- `server/routes.ts` - Analysis API endpoints with OpenAI logic (auth-protected)
-- `server/storage.ts` - Database CRUD operations for users and analyses
+- `server/routes.ts` - Analysis API endpoints with OpenAI logic and token capture (auth-protected)
+- `server/storage.ts` - Database CRUD operations for users, analyses, and usage stats
 - `server/db.ts` - PostgreSQL connection
 - `client/src/App.tsx` - Auth-gated router
+- `client/src/components/usage-dashboard.tsx` - Usage analytics dashboard component
 - `client/src/pages/login.tsx` - Login page
 - `client/src/pages/admin.tsx` - Admin user management page
 - `client/src/pages/home.tsx` - Main page with sidebar layout
@@ -44,6 +47,7 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - `GET /api/admin/users` - List all users
 - `POST /api/admin/users` - Create user (auto-generates 12-char password)
 - `DELETE /api/admin/users/:id` - Delete user
+- `GET /api/admin/usage` - Usage analytics (total analyses, token stats, per-user/type/daily breakdowns)
 
 ### Analyses (auth-required)
 - `GET /api/analyses` - List all analyses

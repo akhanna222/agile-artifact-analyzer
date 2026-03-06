@@ -1,4 +1,5 @@
 import type { Express, RequestHandler } from "express";
+import "express-session";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema, analysisResultSchema, type AnalysisResult } from "@shared/schema";
@@ -217,7 +218,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid input", details: parsed.error.errors });
       }
 
-      const analysis = await storage.createAnalysis(parsed.data);
+      const userId = req.session?.userId;
+      const analysis = await storage.createAnalysis(parsed.data, userId);
 
       try {
         const prompt = getAnalysisPrompt(analysis.type, analysis.content);
@@ -258,11 +260,20 @@ export async function registerRoutes(
               improvedVersion: parsedResult.improvedVersion,
             };
 
+        const usage = response.usage;
+        const tokenUsage = usage ? {
+          promptTokens: usage.prompt_tokens || 0,
+          completionTokens: usage.completion_tokens || 0,
+          totalTokens: usage.total_tokens || 0,
+          model: response.model || "gpt-5.2",
+        } : undefined;
+
         const updated = await storage.updateAnalysisResults(
           analysis.id,
           results.overallScore,
           results,
-          "completed"
+          "completed",
+          tokenUsage
         );
 
         res.json(updated);

@@ -159,6 +159,16 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  app.get("/api/admin/usage", requireAdmin, async (_req, res) => {
+    try {
+      const stats = await storage.getUsageStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching usage stats:", error);
+      res.status(500).json({ error: "Failed to fetch usage stats" });
+    }
+  });
+
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

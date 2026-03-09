@@ -10,7 +10,52 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-function getAnalysisPrompt(type: string, content: string): string {
+async function getRelevantReferences(content: string, artifactType: string): Promise<{ context: string; refs: { docName: string; pageNumber: number; excerpt: string }[] }> {
+  try {
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: content.slice(0, 8000),
+    });
+    const embedding = embeddingResponse.data[0].embedding;
+
+    const results = await storage.searchReferenceDocuments(embedding, 8);
+
+    if (results.length === 0) {
+      return { context: "", refs: [] };
+    }
+
+    const typeDocMap: Record<string, string> = {
+      epic: "Epic-Standards",
+      feature: "Feature-Standard",
+    };
+    const preferredDoc = typeDocMap[artifactType];
+
+    let sortedResults = results;
+    if (preferredDoc) {
+      sortedResults = [
+        ...results.filter(r => r.docName === preferredDoc),
+        ...results.filter(r => r.docName !== preferredDoc),
+      ].slice(0, 8);
+    }
+
+    const context = sortedResults.map(r =>
+      `--- [${r.docName}, Page ${r.pageNumber}] (similarity: ${r.similarity.toFixed(3)}) ---\n${r.content.slice(0, 1500)}`
+    ).join("\n\n");
+
+    const refs = sortedResults.map(r => ({
+      docName: r.docName,
+      pageNumber: r.pageNumber,
+      excerpt: r.content.slice(0, 200),
+    }));
+
+    return { context, refs };
+  } catch (error) {
+    console.error("Error fetching references:", error);
+    return { context: "", refs: [] };
+  }
+}
+
+function getAnalysisPrompt(type: string, content: string, referenceContext?: string): string {
   const typeGuidelines: Record<string, string> = {
     epic: `You are evaluating an EPIC. Apply the following agile methodology guardrails strictly.
 
@@ -190,7 +235,22 @@ The improved version MUST:
 - Include all missing sections
 - Remove all anti-patterns
 - Be production-ready and immediately usable by a Scrum team
+${referenceContext ? `
+=== COMPANY REFERENCE STANDARDS ===
+The following are excerpts from internal company documentation. Use these to verify the artifact against company-specific standards. When referencing these standards in your analysis, cite them using the format [DocName, Page X].
 
+${referenceContext}
+
+In your JSON output, include a "references" array listing the documents you referenced:
+"references": [
+  {
+    "docName": "<document name>",
+    "pageNumber": <page number>,
+    "excerpt": "<brief relevant excerpt from the reference>",
+    "relevance": "<how this reference applies to the artifact being analyzed>"
+  }
+]
+` : ''}
 Here is the ${type.toUpperCase()} to analyze:
 
 ${content}`;
@@ -237,7 +297,8 @@ export async function registerRoutes(
       const analysis = await storage.createAnalysis(parsed.data, userId);
 
       try {
-        const prompt = getAnalysisPrompt(analysis.type, analysis.content);
+        const { context: refContext, refs } = await getRelevantReferences(analysis.content, analysis.type);
+        const prompt = getAnalysisPrompt(analysis.type, analysis.content, refContext || undefined);
 
         const response = await openai.chat.completions.create({
           model: "gpt-5.2",
@@ -281,7 +342,16 @@ export async function registerRoutes(
               ...(typeof parsedResult.businessValueClear === "boolean" && { businessValueClear: parsedResult.businessValueClear }),
               ...(parsedResult.complexity && { complexity: parsedResult.complexity }),
               ...(parsedResult.riskLevel && { riskLevel: parsedResult.riskLevel }),
+              ...(Array.isArray(parsedResult.references) && parsedResult.references.length > 0
+                ? { references: parsedResult.references }
+                : refs.length > 0
+                  ? { references: refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" })) }
+                  : {}),
             };
+
+        if (validated.success && !validated.data.references && refs.length > 0) {
+          results.references = refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" }));
+        }
 
         const usage = response.usage;
         const tokenUsage = usage ? {

@@ -25,11 +25,12 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - **Jira Connect** page (UI-ready stub) for Jira integration config, import, sync toggles, writeback settings
 
 ## File Structure
-- `shared/schema.ts` - Database schema and types (users, analyses tables with token tracking)
-- `server/auth.ts` - Session setup, auth middleware, auth & admin API routes (incl. usage stats)
+- `shared/schema.ts` - Database schema and types (users, analyses, reference_documents tables)
+- `server/auth.ts` - Session setup, auth middleware, auth & admin API routes (incl. usage stats, document management)
 - `server/seed.ts` - Seeds initial admin user on first startup
-- `server/routes.ts` - Analysis API endpoints with OpenAI logic and token capture (auth-protected)
-- `server/storage.ts` - Database CRUD operations for users, analyses, and usage stats
+- `server/routes.ts` - Analysis API endpoints with OpenAI logic, RAG integration, and token capture
+- `server/storage.ts` - Database CRUD operations for users, analyses, usage stats, and reference documents
+- `server/pdf-processor.ts` - PDF text extraction, chunking, embedding generation, and storage for RAG
 - `server/db.ts` - PostgreSQL connection
 - `client/src/App.tsx` - Auth-gated router
 - `client/src/components/usage-dashboard.tsx` - Usage analytics dashboard component
@@ -52,6 +53,10 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - `POST /api/admin/users` - Create user (auto-generates 12-char password)
 - `DELETE /api/admin/users/:id` - Delete user
 - `GET /api/admin/usage` - Usage analytics (total analyses, token stats, per-user/type/daily breakdowns)
+- `GET /api/admin/documents` - List reference document summaries (name, chunk count, date)
+- `POST /api/admin/process-documents` - Trigger processing of all PDF documents (async)
+- `POST /api/admin/process-document/:docName` - Process a single document (async)
+- `DELETE /api/admin/documents/:docName` - Delete all chunks for a document
 
 ### Analyses (auth-required)
 - `GET /api/analyses` - List all analyses
@@ -60,9 +65,19 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - `DELETE /api/analyses/:id` - Delete analysis
 
 ## Database
-- PostgreSQL with `users` and `analyses` tables
+- PostgreSQL with `users`, `analyses`, and `reference_documents` tables
+- pgvector extension enabled for vector similarity search
+- `reference_documents` stores PDF chunks with embeddings (vector(1536)) for RAG
 - Session store via connect-pg-simple (auto-creates session table)
 - Uses Drizzle ORM with `drizzle-kit push` for schema management
+
+## RAG System
+- **PDF Processing**: Extracts text from PDFs using `pdf-parse`, splits by page markers, generates embeddings via OpenAI `text-embedding-3-small`
+- **Documents**: Epic-Standards, Feature-Standard, The_Lighthouse (stored in `attached_assets/`)
+- **Semantic Search**: Uses pgvector cosine similarity (`<=>`) to find top-8 relevant chunks
+- **Analysis Integration**: Before each analysis, relevant reference chunks are retrieved and included in the prompt as "Company Reference Standards" with document name and page citations
+- **Output**: Analysis results include optional `references` array with docName, pageNumber, excerpt, and relevance
+- **Admin UI**: Reference Docs tab in admin dashboard to process, view, and delete documents
 
 ## Auth System
 - Session-based auth with SESSION_SECRET env var (required)

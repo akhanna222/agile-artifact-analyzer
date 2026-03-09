@@ -10,3 +10,7 @@ export const pool = new pg.Pool({
 });
 
 export const db = drizzle(pool);
+
+pool.query("CREATE EXTENSION IF NOT EXISTS vector").catch((err) => {
+  console.warn("pgvector extension setup warning:", err.message);
+});

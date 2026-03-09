@@ -169,6 +169,62 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  app.get("/api/admin/documents", requireAdmin, async (_req, res) => {
+    try {
+      const summary = await storage.getReferenceDocumentSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/admin/process-documents", requireAdmin, async (_req, res) => {
+    try {
+      const { processAllDocuments } = await import("./pdf-processor");
+      res.json({ message: "Document processing started" });
+      processAllDocuments().then(result => {
+        console.log("Document processing complete:", JSON.stringify(result));
+      }).catch(err => {
+        console.error("Document processing failed:", err);
+      });
+    } catch (error) {
+      console.error("Error starting document processing:", error);
+      res.status(500).json({ error: "Failed to start document processing" });
+    }
+  });
+
+  app.post("/api/admin/process-document/:docName", requireAdmin, async (req, res) => {
+    try {
+      const { processDocument, getAvailableDocuments } = await import("./pdf-processor");
+      const docName = req.params.docName;
+      const docs = getAvailableDocuments();
+      const doc = docs.find(d => d.docName === docName);
+      if (!doc) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      res.json({ message: `Processing ${docName} started` });
+      processDocument(doc).then(result => {
+        console.log(`Processing ${docName} complete: ${result.pageCount} chunks`);
+      }).catch(err => {
+        console.error(`Processing ${docName} failed:`, err);
+      });
+    } catch (error) {
+      console.error("Error processing document:", error);
+      res.status(500).json({ error: "Failed to process document" });
+    }
+  });
+
+  app.delete("/api/admin/documents/:docName", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteReferenceDocumentsByName(req.params.docName);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

@@ -22,6 +22,7 @@ import {
   User,
   ListChecks,
   Zap,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -363,6 +364,12 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
               Improved Version
             </TabsTrigger>
           )}
+          {results.references && results.references.length > 0 && (
+            <TabsTrigger value="references" data-testid="tab-references">
+              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+              References ({results.references.length})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="original" className="mt-4">
@@ -491,6 +498,49 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {results.references && results.references.length > 0 && (
+          <TabsContent value="references" className="mt-4">
+            <div className="space-y-3">
+              {results.references.map((ref, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                >
+                  <Card data-testid={`card-reference-${i}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-md bg-[hsl(22,100%,50%)]/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <BookOpen className="w-4 h-4 text-[hsl(22,100%,50%)]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-sm font-semibold" data-testid={`text-ref-doc-${i}`}>
+                              {ref.docName}
+                            </span>
+                            <Badge variant="secondary" className="text-xs" data-testid={`badge-ref-page-${i}`}>
+                              Page {ref.pageNumber}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed mb-2" data-testid={`text-ref-relevance-${i}`}>
+                            {ref.relevance}
+                          </p>
+                          <div className="rounded-md bg-accent/50 p-3">
+                            <p className="text-xs text-muted-foreground italic leading-relaxed" data-testid={`text-ref-excerpt-${i}`}>
+                              "{ref.excerpt}"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
           </TabsContent>
         )}
       </Tabs>

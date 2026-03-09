@@ -21,6 +21,9 @@ import {
   Users,
   KeyRound,
   BarChart3,
+  FileText,
+  RefreshCw,
+  BookOpen,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { UsageDashboard } from "@/components/usage-dashboard";
@@ -34,6 +37,168 @@ interface UserEntry {
 
 interface CreatedUser extends UserEntry {
   generatedPassword: string;
+}
+
+interface DocSummary {
+  docName: string;
+  pageCount: number;
+  createdAt: string;
+}
+
+function DocumentsPanel() {
+  const { toast } = useToast();
+
+  const { data: documents = [], isLoading: docsLoading, refetch } = useQuery<DocSummary[]>({
+    queryKey: ["/api/admin/documents"],
+    refetchInterval: 5000,
+  });
+
+  const processAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/process-documents");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Document processing started", description: "This may take a few minutes. The page will update automatically." });
+      setTimeout(() => refetch(), 3000);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to start processing", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const processSingleMutation = useMutation({
+    mutationFn: async (docName: string) => {
+      const res = await apiRequest("POST", `/api/admin/process-document/${docName}`);
+      return res.json();
+    },
+    onSuccess: (_data, docName) => {
+      toast({ title: `Processing ${docName}`, description: "This may take a few minutes." });
+      setTimeout(() => refetch(), 3000);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to process document", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (docName: string) => {
+      await apiRequest("DELETE", `/api/admin/documents/${docName}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      toast({ title: "Document deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete document", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const allDocs = ["Epic-Standards", "Feature-Standard", "The_Lighthouse"];
+  const totalChunks = documents.reduce((sum, d) => sum + d.pageCount, 0);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Reference Documents</h2>
+              <Badge variant="secondary" data-testid="badge-doc-count">{documents.length} docs</Badge>
+              <Badge variant="outline" data-testid="badge-chunk-count">{totalChunks} chunks</Badge>
+            </div>
+            <Button
+              className="bg-[hsl(22,100%,50%)] hover:bg-[hsl(22,100%,45%)] text-white"
+              size="sm"
+              onClick={() => processAllMutation.mutate()}
+              disabled={processAllMutation.isPending}
+              data-testid="button-process-all"
+            >
+              {processAllMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Process All Documents
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-4">
+            Reference documents are used during analysis to verify artifacts against company-specific standards. Processing extracts text, creates embeddings, and stores them for semantic search.
+          </p>
+
+          {docsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allDocs.map((docName) => {
+                const doc = documents.find(d => d.docName === docName);
+                const isProcessed = !!doc;
+                return (
+                  <div
+                    key={docName}
+                    className="flex items-center justify-between p-3 rounded-md bg-accent/50"
+                    data-testid={`row-doc-${docName}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isProcessed ? 'bg-green-500/10' : 'bg-muted'}`}>
+                        <FileText className={`w-4 h-4 ${isProcessed ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium" data-testid={`text-doc-name-${docName}`}>
+                          {docName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {isProcessed
+                            ? `${doc.pageCount} chunks · Processed ${new Date(doc.createdAt).toLocaleDateString()}`
+                            : "Not processed"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={isProcessed ? "secondary" : "outline"} className="text-xs">
+                        {isProcessed ? "Ready" : "Pending"}
+                      </Badge>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => processSingleMutation.mutate(docName)}
+                        disabled={processSingleMutation.isPending}
+                        data-testid={`button-process-${docName}`}
+                      >
+                        {processSingleMutation.isPending ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                      {isProcessed && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteMutation.mutate(docName)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-doc-${docName}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export default function Admin() {
@@ -128,10 +293,18 @@ export default function Admin() {
               <Users className="w-3.5 h-3.5 mr-1.5" />
               User Management
             </TabsTrigger>
+            <TabsTrigger value="documents" data-testid="tab-documents">
+              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+              Reference Docs
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="analytics" className="mt-4">
             <UsageDashboard />
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-4">
+            <DocumentsPanel />
           </TabsContent>
 
           <TabsContent value="users" className="mt-4">

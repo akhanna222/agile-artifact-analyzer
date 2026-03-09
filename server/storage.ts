@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { analyses, users, type Analysis, type InsertAnalysis, type AnalysisResult, type User, type InsertUser } from "@shared/schema";
+import { analyses, users, referenceDocuments, type Analysis, type InsertAnalysis, type AnalysisResult, type User, type InsertUser, type ReferenceDocument } from "@shared/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
 
 export interface IStorage {
@@ -14,6 +14,12 @@ export interface IStorage {
   createUser(data: InsertUser): Promise<User>;
   deleteUser(id: number): Promise<void>;
   getUsageStats(): Promise<any>;
+  getReferenceDocuments(): Promise<ReferenceDocument[]>;
+  getReferenceDocumentsByName(docName: string): Promise<ReferenceDocument[]>;
+  addReferenceDocument(doc: { docName: string; pageNumber: number; content: string; embedding: number[] | null }): Promise<ReferenceDocument>;
+  deleteReferenceDocumentsByName(docName: string): Promise<void>;
+  searchReferenceDocuments(embedding: number[], limit?: number): Promise<(ReferenceDocument & { similarity: number })[]>;
+  getReferenceDocumentSummary(): Promise<{ docName: string; pageCount: number; createdAt: Date }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -151,6 +157,58 @@ export class DatabaseStorage implements IStorage {
       })),
       dailyUsage,
     };
+  }
+
+  async getReferenceDocuments(): Promise<ReferenceDocument[]> {
+    return db.select().from(referenceDocuments).orderBy(referenceDocuments.docName, referenceDocuments.pageNumber);
+  }
+
+  async getReferenceDocumentsByName(docName: string): Promise<ReferenceDocument[]> {
+    return db.select().from(referenceDocuments).where(eq(referenceDocuments.docName, docName)).orderBy(referenceDocuments.pageNumber);
+  }
+
+  async addReferenceDocument(doc: { docName: string; pageNumber: number; content: string; embedding: number[] | null }): Promise<ReferenceDocument> {
+    const [result] = await db.insert(referenceDocuments).values({
+      docName: doc.docName,
+      pageNumber: doc.pageNumber,
+      content: doc.content,
+      embedding: doc.embedding,
+    }).returning();
+    return result;
+  }
+
+  async deleteReferenceDocumentsByName(docName: string): Promise<void> {
+    await db.delete(referenceDocuments).where(eq(referenceDocuments.docName, docName));
+  }
+
+  async searchReferenceDocuments(embedding: number[], limit: number = 8): Promise<(ReferenceDocument & { similarity: number })[]> {
+    const embeddingStr = `[${embedding.join(",")}]`;
+    const results = await db.execute(sql`
+      SELECT id, doc_name, page_number, content, created_at,
+        1 - (embedding <=> ${embeddingStr}::vector) as similarity
+      FROM reference_documents
+      WHERE embedding IS NOT NULL
+      ORDER BY embedding <=> ${embeddingStr}::vector
+      LIMIT ${limit}
+    `);
+    return (results.rows as any[]).map(row => ({
+      id: row.id,
+      docName: row.doc_name,
+      pageNumber: row.page_number,
+      content: row.content,
+      embedding: null,
+      createdAt: row.created_at,
+      similarity: parseFloat(row.similarity),
+    }));
+  }
+
+  async getReferenceDocumentSummary(): Promise<{ docName: string; pageCount: number; createdAt: Date }[]> {
+    const results = await db.select({
+      docName: referenceDocuments.docName,
+      pageCount: count(),
+      createdAt: sql<Date>`MIN(${referenceDocuments.createdAt})`,
+    }).from(referenceDocuments).groupBy(referenceDocuments.docName);
+    return results as any;
   }
 }
 

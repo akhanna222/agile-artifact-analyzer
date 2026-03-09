@@ -90,7 +90,7 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-background">
       <div className="hidden lg:flex lg:flex-col lg:w-80 border-r bg-sidebar">
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-4 border-b border-sidebar-border shrink-0">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-md bg-[hsl(22,100%,50%)] flex items-center justify-center">
               <FileText className="w-4 h-4 text-white" />
@@ -103,15 +103,17 @@ export default function Home() {
             AI-Powered Quality Analysis
           </p>
         </div>
-        <AnalysisHistory
-          analyses={analyses}
-          selectedId={selectedAnalysis?.id}
-          onSelect={handleSelectAnalysis}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          onNewAnalysis={handleNewAnalysis}
-          isLoading={loadingHistory}
-        />
-        <div className="p-3 border-t border-sidebar-border space-y-2">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <AnalysisHistory
+            analyses={analyses}
+            selectedId={selectedAnalysis?.id}
+            onSelect={handleSelectAnalysis}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            onNewAnalysis={handleNewAnalysis}
+            isLoading={loadingHistory}
+          />
+        </div>
+        <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">
           <Button
             variant="ghost"
             size="sm"

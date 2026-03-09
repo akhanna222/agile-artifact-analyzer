@@ -160,6 +160,14 @@ export default function Home() {
             <h1 className="text-base font-semibold" data-testid="text-app-title-mobile">Agile Artifact Analyzer</h1>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setLocation("/jira-connect")}
+              data-testid="button-jira-connect-mobile"
+            >
+              <Link2 className="w-4 h-4" />
+            </Button>
             {user?.isAdmin && (
               <Button
                 size="icon"

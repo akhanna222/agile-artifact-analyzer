@@ -16,9 +16,9 @@ export interface IStorage {
   getUsageStats(): Promise<any>;
   getReferenceDocuments(): Promise<ReferenceDocument[]>;
   getReferenceDocumentsByName(docName: string): Promise<ReferenceDocument[]>;
-  addReferenceDocument(doc: { docName: string; pageNumber: number; content: string; embedding: number[] | null }): Promise<ReferenceDocument>;
+  addReferenceDocument(doc: { docName: string; pageNumber: number; content: string }): Promise<ReferenceDocument>;
   deleteReferenceDocumentsByName(docName: string): Promise<void>;
-  searchReferenceDocuments(embedding: number[], limit?: number): Promise<(ReferenceDocument & { similarity: number })[]>;
+  searchReferenceDocumentsByText(queryText: string, limit?: number): Promise<(ReferenceDocument & { similarity: number })[]>;
   getReferenceDocumentSummary(): Promise<{ docName: string; pageCount: number; createdAt: Date }[]>;
 }
 
@@ -167,12 +167,11 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(referenceDocuments).where(eq(referenceDocuments.docName, docName)).orderBy(referenceDocuments.pageNumber);
   }
 
-  async addReferenceDocument(doc: { docName: string; pageNumber: number; content: string; embedding: number[] | null }): Promise<ReferenceDocument> {
+  async addReferenceDocument(doc: { docName: string; pageNumber: number; content: string }): Promise<ReferenceDocument> {
     const [result] = await db.insert(referenceDocuments).values({
       docName: doc.docName,
       pageNumber: doc.pageNumber,
       content: doc.content,
-      embedding: doc.embedding,
     }).returning();
     return result;
   }
@@ -181,14 +180,25 @@ export class DatabaseStorage implements IStorage {
     await db.delete(referenceDocuments).where(eq(referenceDocuments.docName, docName));
   }
 
-  async searchReferenceDocuments(embedding: number[], limit: number = 8): Promise<(ReferenceDocument & { similarity: number })[]> {
-    const embeddingStr = `[${embedding.join(",")}]`;
+  async searchReferenceDocumentsByText(queryText: string, limit: number = 8): Promise<(ReferenceDocument & { similarity: number })[]> {
+    const words = queryText.toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .slice(0, 20);
+
+    if (words.length === 0) {
+      return [];
+    }
+
+    const tsQuery = words.join(" | ");
+
     const results = await db.execute(sql`
       SELECT id, doc_name, page_number, content, created_at,
-        1 - (embedding <=> ${embeddingStr}::vector) as similarity
+        ts_rank_cd(to_tsvector('english', content), to_tsquery('english', ${tsQuery})) as similarity
       FROM reference_documents
-      WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> ${embeddingStr}::vector
+      WHERE to_tsvector('english', content) @@ to_tsquery('english', ${tsQuery})
+      ORDER BY similarity DESC
       LIMIT ${limit}
     `);
     return (results.rows as any[]).map(row => ({
@@ -198,7 +208,7 @@ export class DatabaseStorage implements IStorage {
       content: row.content,
       embedding: null,
       createdAt: row.created_at,
-      similarity: parseFloat(row.similarity),
+      similarity: parseFloat(row.similarity || "0"),
     }));
   }
 

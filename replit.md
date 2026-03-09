@@ -66,18 +66,17 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 
 ## Database
 - PostgreSQL with `users`, `analyses`, and `reference_documents` tables
-- pgvector extension enabled for vector similarity search
-- `reference_documents` stores PDF chunks with embeddings (vector(1536)) for RAG
 - Session store via connect-pg-simple (auto-creates session table)
 - Uses Drizzle ORM with `drizzle-kit push` for schema management
 
 ## RAG System
-- **PDF Processing**: Extracts text from PDFs using `pdf-parse`, splits by page markers, generates embeddings via OpenAI `text-embedding-3-small`
-- **Documents**: Epic-Standards, Feature-Standard, The_Lighthouse (stored in `attached_assets/`)
-- **Semantic Search**: Uses pgvector cosine similarity (`<=>`) to find top-8 relevant chunks
-- **Analysis Integration**: Before each analysis, relevant reference chunks are retrieved and included in the prompt as "Company Reference Standards" with document name and page citations
+- **PDF Processing**: Extracts text from PDFs using `pdf-parse` v2 (PDFParse class with `load()` + `getPage().getTextContent()` API), splits by page markers into chunks
+- **Documents**: Epic-Standards (8 chunks), Feature-Standard (4 chunks), The_Lighthouse (300 chunks) stored in `attached_assets/`
+- **Text Search**: Uses PostgreSQL full-text search (`tsvector/tsquery` with `ts_rank_cd`) instead of vector embeddings (Replit AI Integrations don't support the embeddings endpoint)
+- **Analysis Integration**: Before each analysis, relevant reference chunks are retrieved via text search and included in the prompt as "Company Reference Standards" with document name and page citations
 - **Output**: Analysis results include optional `references` array with docName, pageNumber, excerpt, and relevance
 - **Admin UI**: Reference Docs tab in admin dashboard to process, view, and delete documents
+- **CommonJS Compatibility**: `pdf-parse` v2 uses `createRequire(import.meta.url)` pattern for ESM compatibility
 
 ## Auth System
 - Session-based auth with SESSION_SECRET env var (required)

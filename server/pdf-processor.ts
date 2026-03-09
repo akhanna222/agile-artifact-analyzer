@@ -1,12 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import OpenAI from "openai";
+import { createRequire } from "module";
 import { storage } from "./storage";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const require = createRequire(import.meta.url);
 
 interface PdfDocConfig {
   fileName: string;
@@ -29,10 +26,20 @@ const PDF_DOCS: PdfDocConfig[] = [
 ];
 
 async function extractPdfText(filePath: string): Promise<string> {
-  const pdfParse = (await import("pdf-parse")).default;
-  const dataBuffer = fs.readFileSync(filePath);
-  const data = await pdfParse(dataBuffer);
-  return data.text;
+  const { PDFParse, VerbosityLevel } = require("pdf-parse");
+  const dataBuffer = new Uint8Array(fs.readFileSync(filePath));
+  const parser = new PDFParse({ verbosity: VerbosityLevel.ERRORS, data: dataBuffer });
+  const doc = await parser.load();
+  const numPages = doc.numPages;
+  let allText = "";
+  for (let i = 1; i <= numPages; i++) {
+    const page = await doc.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item: any) => item.str).join(" ");
+    allText += pageText + "\f";
+  }
+  parser.destroy();
+  return allText;
 }
 
 function splitIntoChunks(text: string, maxTokens: number = 800): string[] {
@@ -79,14 +86,6 @@ function splitBySize(text: string, maxTokens: number): string[] {
   return chunks;
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.slice(0, 8000),
-  });
-  return response.data[0].embedding;
-}
-
 export async function processDocument(config: PdfDocConfig): Promise<{ pageCount: number }> {
   const filePath = path.join(process.cwd(), "attached_assets", config.fileName);
 
@@ -106,24 +105,12 @@ export async function processDocument(config: PdfDocConfig): Promise<{ pageCount
     const chunk = chunks[i];
     const pageNumber = i + 1;
 
-    try {
-      const embedding = await generateEmbedding(chunk);
-      await storage.addReferenceDocument({
-        docName: config.docName,
-        pageNumber,
-        content: chunk,
-        embedding,
-      });
-      console.log(`  Stored ${config.docName} chunk ${pageNumber}/${chunks.length}`);
-    } catch (error) {
-      console.error(`  Error processing chunk ${pageNumber} of ${config.docName}:`, error);
-      await storage.addReferenceDocument({
-        docName: config.docName,
-        pageNumber,
-        content: chunk,
-        embedding: null,
-      });
-    }
+    await storage.addReferenceDocument({
+      docName: config.docName,
+      pageNumber,
+      content: chunk,
+    });
+    console.log(`  Stored ${config.docName} chunk ${pageNumber}/${chunks.length}`);
   }
 
   return { pageCount: chunks.length };

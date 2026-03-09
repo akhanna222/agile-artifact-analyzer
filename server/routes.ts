@@ -12,13 +12,7 @@ const openai = new OpenAI({
 
 async function getRelevantReferences(content: string, artifactType: string): Promise<{ context: string; refs: { docName: string; pageNumber: number; excerpt: string }[] }> {
   try {
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: content.slice(0, 8000),
-    });
-    const embedding = embeddingResponse.data[0].embedding;
-
-    const results = await storage.searchReferenceDocuments(embedding, 8);
+    const results = await storage.searchReferenceDocumentsByText(content, 12);
 
     if (results.length === 0) {
       return { context: "", refs: [] };
@@ -36,10 +30,12 @@ async function getRelevantReferences(content: string, artifactType: string): Pro
         ...results.filter(r => r.docName === preferredDoc),
         ...results.filter(r => r.docName !== preferredDoc),
       ].slice(0, 8);
+    } else {
+      sortedResults = results.slice(0, 8);
     }
 
     const context = sortedResults.map(r =>
-      `--- [${r.docName}, Page ${r.pageNumber}] (similarity: ${r.similarity.toFixed(3)}) ---\n${r.content.slice(0, 1500)}`
+      `--- [${r.docName}, Page ${r.pageNumber}] (relevance: ${r.similarity.toFixed(3)}) ---\n${r.content.slice(0, 1500)}`
     ).join("\n\n");
 
     const refs = sortedResults.map(r => ({

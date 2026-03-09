@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Admin from "@/pages/admin";
+import JiraConnect from "@/pages/jira-connect";
 import { Loader2 } from "lucide-react";
 
 interface AuthUser {
@@ -36,6 +37,7 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/jira-connect" component={JiraConnect} />
       {user.isAdmin && <Route path="/admin" component={Admin} />}
       <Route component={NotFound} />
     </Switch>

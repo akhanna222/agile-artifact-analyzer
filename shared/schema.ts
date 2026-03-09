@@ -62,6 +62,21 @@ export const analysisResultSchema = z.object({
     suggestions: z.array(z.string()),
   })),
   improvedVersion: z.string().optional(),
+  investScores: z.object({
+    independent: z.number().min(0).max(100),
+    negotiable: z.number().min(0).max(100),
+    valuable: z.number().min(0).max(100),
+    estimable: z.number().min(0).max(100),
+    small: z.number().min(0).max(100),
+    testable: z.number().min(0).max(100),
+  }).optional(),
+  clarity: z.number().min(0).max(100).optional(),
+  completeness: z.number().min(0).max(100).optional(),
+  acceptanceCriteriaPresent: z.boolean().optional(),
+  userRoleDefined: z.boolean().optional(),
+  businessValueClear: z.boolean().optional(),
+  complexity: z.enum(["Low", "Medium", "High"]).optional(),
+  riskLevel: z.enum(["Low", "Medium", "High"]).optional(),
 });
 
 export type AnalysisResult = z.infer<typeof analysisResultSchema>;

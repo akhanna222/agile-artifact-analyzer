@@ -16,6 +16,12 @@ import {
   Copy,
   Check,
   ClipboardList,
+  Shield,
+  Gauge,
+  Target,
+  User,
+  ListChecks,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -210,6 +216,136 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
           </CardContent>
         </Card>
       </div>
+
+      {(results.investScores || results.clarity !== undefined || results.complexity || results.acceptanceCriteriaPresent !== undefined) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {results.investScores && (
+            <Card data-testid="card-invest-scores">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="w-4 h-4 text-[hsl(22,100%,50%)]" />
+                  <h3 className="text-sm font-semibold">INVEST Scores</h3>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(results.investScores).map(([key, value]) => {
+                    const getBarColor = (s: number) => {
+                      if (s >= 80) return "bg-green-500";
+                      if (s >= 50) return "bg-amber-500";
+                      return "bg-red-500";
+                    };
+                    return (
+                      <div key={key} data-testid={`invest-score-${key}`}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                            {key}
+                          </span>
+                          <span className="text-xs font-mono font-medium">{value}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${getBarColor(value)}`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${value}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(results.clarity !== undefined || results.completeness !== undefined || results.acceptanceCriteriaPresent !== undefined) && (
+            <Card data-testid="card-quality-checks">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <ListChecks className="w-4 h-4 text-[hsl(22,100%,50%)]" />
+                  <h3 className="text-sm font-semibold">Quality Checks</h3>
+                </div>
+                {(results.clarity !== undefined || results.completeness !== undefined) && (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {results.clarity !== undefined && (
+                      <div className="rounded-lg bg-accent/50 p-3 text-center" data-testid="score-clarity">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Clarity</div>
+                        <div className={`text-2xl font-bold font-mono ${results.clarity >= 80 ? "text-green-500" : results.clarity >= 50 ? "text-amber-500" : "text-red-500"}`}>
+                          {results.clarity}
+                        </div>
+                      </div>
+                    )}
+                    {results.completeness !== undefined && (
+                      <div className="rounded-lg bg-accent/50 p-3 text-center" data-testid="score-completeness">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Completeness</div>
+                        <div className={`text-2xl font-bold font-mono ${results.completeness >= 80 ? "text-green-500" : results.completeness >= 50 ? "text-amber-500" : "text-red-500"}`}>
+                          {results.completeness}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(results.acceptanceCriteriaPresent !== undefined || results.userRoleDefined !== undefined || results.businessValueClear !== undefined) && (
+                  <div className="space-y-2">
+                    {[
+                      { key: "acceptanceCriteriaPresent", label: "Acceptance Criteria", icon: ListChecks, value: results.acceptanceCriteriaPresent },
+                      { key: "userRoleDefined", label: "User Role Defined", icon: User, value: results.userRoleDefined },
+                      { key: "businessValueClear", label: "Business Value Clear", icon: Zap, value: results.businessValueClear },
+                    ].filter(item => item.value !== undefined).map(item => (
+                      <div key={item.key} className="flex items-center gap-2" data-testid={`check-${item.key}`}>
+                        {item.value ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className="text-sm">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {(results.complexity || results.riskLevel) && (
+            <Card data-testid="card-complexity-risk">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Gauge className="w-4 h-4 text-[hsl(22,100%,50%)]" />
+                  <h3 className="text-sm font-semibold">Complexity & Risk</h3>
+                </div>
+                <div className="space-y-4">
+                  {results.complexity && (
+                    <div data-testid="tag-complexity">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Complexity</div>
+                      <Badge variant="secondary" className={`text-sm px-3 py-1 ${
+                        results.complexity === "Low" ? "bg-green-500/10 text-green-700 dark:text-green-400" :
+                        results.complexity === "Medium" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" :
+                        "bg-red-500/10 text-red-700 dark:text-red-400"
+                      }`}>
+                        <Shield className="w-3.5 h-3.5 mr-1.5 inline" />
+                        {results.complexity}
+                      </Badge>
+                    </div>
+                  )}
+                  {results.riskLevel && (
+                    <div data-testid="tag-risk-level">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Risk Level</div>
+                      <Badge variant="secondary" className={`text-sm px-3 py-1 ${
+                        results.riskLevel === "Low" ? "bg-green-500/10 text-green-700 dark:text-green-400" :
+                        results.riskLevel === "Medium" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" :
+                        "bg-red-500/10 text-red-700 dark:text-red-400"
+                      }`}>
+                        <AlertTriangle className="w-3.5 h-3.5 mr-1.5 inline" />
+                        {results.riskLevel}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="details" className="w-full">
         <TabsList data-testid="tabs-results">

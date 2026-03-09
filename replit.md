@@ -16,10 +16,13 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - Token tracking per analysis (prompt tokens, completion tokens, total tokens, model)
 - Analyze Epics, Features, User Stories, and Tasks
 - Quality scoring (0-100) with category breakdowns
-- INVEST criteria checking for user stories
+- **Individual INVEST scores** for stories (Independent, Negotiable, Valuable, Estimable, Small, Testable) with progress bars
+- **Quality checks**: Clarity score, Completeness score, boolean checks (AC Present, User Role Defined, Business Value Clear)
+- **Complexity & Risk Level** tags (Low/Medium/High)
 - AI-generated improvement suggestions
 - Rewritten/improved version of the artifact
 - Analysis history with persistence
+- **Jira Connect** page (UI-ready stub) for Jira integration config, import, sync toggles, writeback settings
 
 ## File Structure
 - `shared/schema.ts` - Database schema and types (users, analyses tables with token tracking)
@@ -34,7 +37,8 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - `client/src/pages/admin.tsx` - Admin user management page
 - `client/src/pages/home.tsx` - Main page with sidebar layout
 - `client/src/components/analysis-form.tsx` - Analysis input form
-- `client/src/components/analysis-results.tsx` - Results display with score ring, original content tab
+- `client/src/components/analysis-results.tsx` - Results display with score ring, INVEST bars, quality checks, complexity/risk
+- `client/src/pages/jira-connect.tsx` - Jira integration configuration page
 - `client/src/components/analysis-history.tsx` - Sidebar history list
 
 ## API Endpoints

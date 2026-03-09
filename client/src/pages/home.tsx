@@ -7,7 +7,7 @@ import { AnalysisForm } from "@/components/analysis-form";
 import { AnalysisResults } from "@/components/analysis-results";
 import { AnalysisHistory } from "@/components/analysis-history";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, History, ChevronLeft, LogOut, Shield } from "lucide-react";
+import { FileText, History, ChevronLeft, LogOut, Shield, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
@@ -112,6 +112,16 @@ export default function Home() {
           isLoading={loadingHistory}
         />
         <div className="p-3 border-t border-sidebar-border space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            onClick={() => setLocation("/jira-connect")}
+            data-testid="button-jira-connect"
+          >
+            <Link2 className="w-4 h-4 mr-2" />
+            Jira Connect
+          </Button>
           {user?.isAdmin && (
             <Button
               variant="ghost"

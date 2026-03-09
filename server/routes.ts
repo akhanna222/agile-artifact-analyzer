@@ -150,7 +150,22 @@ Return your analysis as a valid JSON object with exactly this structure:
       "suggestions": ["<actionable, specific suggestion with an example of what good looks like>"]
     }
   ],
-  "improvedVersion": "<completely rewritten version of the ${type} that addresses all findings and follows all guardrails above>"
+  "improvedVersion": "<completely rewritten version of the ${type} that addresses all findings and follows all guardrails above>",
+  "clarity": <number 0-100, how clear and unambiguous the artifact is>,
+  "completeness": <number 0-100, how complete the artifact is with all required elements>,
+  "acceptanceCriteriaPresent": <boolean, true if acceptance criteria are explicitly defined>,
+  "userRoleDefined": <boolean, true if a specific user role or persona is identified>,
+  "businessValueClear": <boolean, true if business value or benefit is clearly articulated>,
+  "complexity": "<Low|Medium|High, estimated implementation complexity>",
+  "riskLevel": "<Low|Medium|High, estimated risk level based on dependencies, unknowns, and technical challenges>"${type === 'story' ? `,
+  "investScores": {
+    "independent": <number 0-100, how independent this story is from other stories>,
+    "negotiable": <number 0-100, how negotiable the implementation details are>,
+    "valuable": <number 0-100, how much end-user value this story delivers>,
+    "estimable": <number 0-100, how estimable this story is by the team>,
+    "small": <number 0-100, how well-sized this story is for a single sprint>,
+    "testable": <number 0-100, how testable the acceptance criteria are>
+  }` : ''}
 }
 
 === SCORING RUBRIC ===
@@ -258,6 +273,14 @@ export async function registerRoutes(
                   }))
                 : [],
               improvedVersion: parsedResult.improvedVersion,
+              ...(parsedResult.investScores && { investScores: parsedResult.investScores }),
+              ...(typeof parsedResult.clarity === "number" && { clarity: parsedResult.clarity }),
+              ...(typeof parsedResult.completeness === "number" && { completeness: parsedResult.completeness }),
+              ...(typeof parsedResult.acceptanceCriteriaPresent === "boolean" && { acceptanceCriteriaPresent: parsedResult.acceptanceCriteriaPresent }),
+              ...(typeof parsedResult.userRoleDefined === "boolean" && { userRoleDefined: parsedResult.userRoleDefined }),
+              ...(typeof parsedResult.businessValueClear === "boolean" && { businessValueClear: parsedResult.businessValueClear }),
+              ...(parsedResult.complexity && { complexity: parsedResult.complexity }),
+              ...(parsedResult.riskLevel && { riskLevel: parsedResult.riskLevel }),
             };
 
         const usage = response.usage;

@@ -67,6 +67,23 @@ app.use((req, res, next) => {
   await seedAdminUser();
   await registerRoutes(httpServer, app, requireAuth);
 
+  (async () => {
+    try {
+      const { storage } = await import("./storage");
+      const docs = await storage.getReferenceDocumentSummary();
+      if (docs.length === 0) {
+        console.log("[SETUP] No reference documents found, auto-processing PDFs...");
+        const { processAllDocuments } = await import("./pdf-processor");
+        const result = await processAllDocuments();
+        console.log("[SETUP] Auto-processing complete:", JSON.stringify(result));
+      } else {
+        console.log(`[SETUP] Reference documents ready: ${docs.length} docs, ${docs.reduce((s, d) => s + d.pageCount, 0)} chunks`);
+      }
+    } catch (err) {
+      console.error("[SETUP] Auto-processing failed (non-fatal):", err);
+    }
+  })();
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

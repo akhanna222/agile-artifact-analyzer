@@ -1,9 +1,23 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
 import { storage } from "./storage";
 
-const require = createRequire(import.meta.url);
+let _require: NodeRequire;
+try {
+  if (typeof globalThis.require === "function") {
+    _require = globalThis.require;
+  } else {
+    _require = createRequire(import.meta.url);
+  }
+} catch {
+  _require = createRequire(
+    fileURLToPath(
+      `file://${path.resolve(process.cwd(), "server", "pdf-processor.ts")}`
+    )
+  );
+}
 
 interface PdfDocConfig {
   fileName: string;
@@ -26,7 +40,7 @@ const PDF_DOCS: PdfDocConfig[] = [
 ];
 
 async function extractPdfText(filePath: string): Promise<string> {
-  const { PDFParse, VerbosityLevel } = require("pdf-parse");
+  const { PDFParse, VerbosityLevel } = _require("pdf-parse");
   const dataBuffer = new Uint8Array(fs.readFileSync(filePath));
   const parser = new PDFParse({ verbosity: VerbosityLevel.ERRORS, data: dataBuffer });
   const doc = await parser.load();

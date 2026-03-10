@@ -70,7 +70,7 @@ The app will be available at `http://localhost:5000`.
 
 On first startup, an admin account is automatically created:
 - **Email:** `admin@mastercard.com`
-- **Password:** Check the server console output - a random password is generated and logged once
+- **Password:** `admin123`
 
 ### 8. Process Reference Documents
 

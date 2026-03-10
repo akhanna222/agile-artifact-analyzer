@@ -16,16 +16,18 @@ function generateSecurePassword(): string {
 export async function seedAdminUser() {
   const adminEmail = "admin@mastercard.com";
   const [existing] = await db.select().from(users).where(eq(users.email, adminEmail));
+  const defaultPassword = "admin123";
   if (!existing) {
-    const plainPassword = generateSecurePassword();
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     await db.insert(users).values({
       email: adminEmail,
       password: hashedPassword,
       isAdmin: true,
     });
-    console.log(`[SETUP] Admin user created: ${adminEmail}`);
-    console.log(`[SETUP] Generated password: ${plainPassword}`);
-    console.log(`[SETUP] ⚠ Save this password now — it will not be shown again.`);
+    console.log(`[SETUP] Admin user created: ${adminEmail} / ${defaultPassword}`);
+  } else {
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.email, adminEmail));
+    console.log(`[SETUP] Admin password reset to: ${defaultPassword}`);
   }
 }

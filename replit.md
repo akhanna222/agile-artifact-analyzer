@@ -85,6 +85,21 @@ AI-powered Agile Artifact Analyzer for evaluating Epics, Features, User Stories,
 - Admin can create new users via the admin panel; passwords are auto-generated and shown once
 - Secure cookies in production (httpOnly, secure when NODE_ENV=production)
 
+## OpenAI Configuration
+- On Replit: uses `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL` (auto-provided)
+- Standalone/VM: uses `OPENAI_API_KEY` env var (set your own key)
+- Falls back gracefully: `AI_INTEGRATIONS_OPENAI_API_KEY || OPENAI_API_KEY`
+
+## Jira Integration
+- Jira Connect page exists as a UI stub (client/src/pages/jira-connect.tsx)
+- Replit Jira connector available (`connector:ccfg_jira_8D0B4B1730F64429A4FC3ACB88`) but user dismissed OAuth flow
+- For standalone deployment, Jira connection would need manual API token configuration
+
+## Self-Hosting
+- See `SELF_HOSTING.md` for complete VM deployment instructions
+- Build: `npm run build` -> Production: `npm start`
+- Requires: Node.js 20+, PostgreSQL 14+, OPENAI_API_KEY
+
 ## Theme
 - Mastercard-inspired: dark charcoal grey sidebar, orange (#FF5F00) accent buttons/icons
 - Navy blue primary in light mode, orange primary in dark mode

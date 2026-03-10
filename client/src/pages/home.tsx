@@ -43,16 +43,35 @@ export default function Home() {
   const analyzeMutation = useMutation({
     mutationFn: async (data: { title: string; type: string; content: string }) => {
       const res = await apiRequest("POST", "/api/analyses", data);
-      return res.json();
+      const analysis = await res.json();
+
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        const pollRes = await fetch(`/api/analyses/${analysis.id}`, { credentials: "include" });
+        if (!pollRes.ok) continue;
+        const updated = await pollRes.json();
+        if (updated.status === "completed" || updated.status === "failed") {
+          return updated;
+        }
+      }
+      throw new Error("Analysis timed out. Please check back shortly.");
     },
     onSuccess: (data: Analysis) => {
+      if (data.status === "failed") {
+        toast({
+          title: "Analysis Failed",
+          description: "The AI was unable to process this artifact.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Analysis Complete",
+          description: `Quality score: ${data.overallScore}/100`,
+        });
+      }
       setSelectedAnalysis(data);
       queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/usage"] });
-      toast({
-        title: "Analysis Complete",
-        description: `Quality score: ${data.overallScore}/100`,
-      });
     },
     onError: (error: Error) => {
       toast({

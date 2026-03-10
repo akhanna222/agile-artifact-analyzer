@@ -12,7 +12,7 @@ const openai = new OpenAI({
 
 async function getRelevantReferences(content: string, artifactType: string): Promise<{ context: string; refs: { docName: string; pageNumber: number; excerpt: string }[] }> {
   try {
-    const results = await storage.searchReferenceDocumentsByText(content, 12);
+    const results = await storage.searchReferenceDocumentsByText(content, 6);
 
     if (results.length === 0) {
       return { context: "", refs: [] };
@@ -29,13 +29,13 @@ async function getRelevantReferences(content: string, artifactType: string): Pro
       sortedResults = [
         ...results.filter(r => r.docName === preferredDoc),
         ...results.filter(r => r.docName !== preferredDoc),
-      ].slice(0, 8);
+      ].slice(0, 4);
     } else {
-      sortedResults = results.slice(0, 8);
+      sortedResults = results.slice(0, 4);
     }
 
     const context = sortedResults.map(r =>
-      `--- [${r.docName}, Page ${r.pageNumber}] (relevance: ${r.similarity.toFixed(3)}) ---\n${r.content.slice(0, 1500)}`
+      `--- [${r.docName}, Page ${r.pageNumber}] ---\n${r.content.slice(0, 800)}`
     ).join("\n\n");
 
     const refs = sortedResults.map(r => ({
@@ -292,89 +292,97 @@ export async function registerRoutes(
       const userId = req.session?.userId;
       const analysis = await storage.createAnalysis(parsed.data, userId);
 
-      try {
-        const { context: refContext, refs } = await getRelevantReferences(analysis.content, analysis.type);
-        const prompt = getAnalysisPrompt(analysis.type, analysis.content, refContext || undefined);
+      res.json(analysis);
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.2",
-          messages: [
-            { role: "system", content: "You are a senior Agile Coach (CSP, SAFe SPC) who rigorously evaluates agile artifacts against Scrum, SAFe, and industry-standard methodologies. You never inflate scores. You always respond with valid JSON only, no markdown formatting." },
-            { role: "user", content: prompt },
-          ],
-          max_completion_tokens: 8192,
-          response_format: { type: "json_object" },
-        });
-
-        const resultText = response.choices[0]?.message?.content || "{}";
-        let parsedResult;
+      (async () => {
         try {
-          parsedResult = JSON.parse(resultText);
-        } catch {
-          throw new Error("Failed to parse AI response as JSON");
+          console.log(`[Analysis ${analysis.id}] Starting background processing...`);
+          const { context: refContext, refs } = await getRelevantReferences(analysis.content, analysis.type);
+          console.log(`[Analysis ${analysis.id}] Got ${refs.length} references, calling OpenAI...`);
+          const prompt = getAnalysisPrompt(analysis.type, analysis.content, refContext || undefined);
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 90000);
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: "You are a senior Agile Coach (CSP, SAFe SPC) who rigorously evaluates agile artifacts against Scrum, SAFe, and industry-standard methodologies. You never inflate scores. You always respond with valid JSON only, no markdown formatting. Be concise." },
+              { role: "user", content: prompt },
+            ],
+            max_completion_tokens: 4096,
+            response_format: { type: "json_object" },
+          }, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          console.log(`[Analysis ${analysis.id}] OpenAI response received`);
+
+          const resultText = response.choices[0]?.message?.content || "{}";
+          let parsedResult;
+          try {
+            parsedResult = JSON.parse(resultText);
+          } catch {
+            throw new Error("Failed to parse AI response as JSON");
+          }
+
+          const validated = analysisResultSchema.safeParse(parsedResult);
+          const results: AnalysisResult = validated.success
+            ? validated.data
+            : {
+                overallScore: parsedResult.overallScore ?? 0,
+                summary: parsedResult.summary ?? "Analysis completed with partial results.",
+                categories: Array.isArray(parsedResult.categories)
+                  ? parsedResult.categories.map((c: any) => ({
+                      name: c.name ?? "Unknown",
+                      score: typeof c.score === "number" ? c.score : 0,
+                      status: ["pass", "warning", "fail"].includes(c.status) ? c.status : "warning",
+                      findings: Array.isArray(c.findings) ? c.findings : [],
+                      suggestions: Array.isArray(c.suggestions) ? c.suggestions : [],
+                    }))
+                  : [],
+                improvedVersion: parsedResult.improvedVersion,
+                ...(parsedResult.investScores && { investScores: parsedResult.investScores }),
+                ...(typeof parsedResult.clarity === "number" && { clarity: parsedResult.clarity }),
+                ...(typeof parsedResult.completeness === "number" && { completeness: parsedResult.completeness }),
+                ...(typeof parsedResult.acceptanceCriteriaPresent === "boolean" && { acceptanceCriteriaPresent: parsedResult.acceptanceCriteriaPresent }),
+                ...(typeof parsedResult.userRoleDefined === "boolean" && { userRoleDefined: parsedResult.userRoleDefined }),
+                ...(typeof parsedResult.businessValueClear === "boolean" && { businessValueClear: parsedResult.businessValueClear }),
+                ...(parsedResult.complexity && { complexity: parsedResult.complexity }),
+                ...(parsedResult.riskLevel && { riskLevel: parsedResult.riskLevel }),
+                ...(Array.isArray(parsedResult.references) && parsedResult.references.length > 0
+                  ? { references: parsedResult.references }
+                  : refs.length > 0
+                    ? { references: refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" })) }
+                    : {}),
+              };
+
+          if (validated.success && !validated.data.references && refs.length > 0) {
+            results.references = refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" }));
+          }
+
+          const usage = response.usage;
+          const tokenUsage = usage ? {
+            promptTokens: usage.prompt_tokens || 0,
+            completionTokens: usage.completion_tokens || 0,
+            totalTokens: usage.total_tokens || 0,
+            model: response.model || "gpt-5.2",
+          } : undefined;
+
+          await storage.updateAnalysisResults(
+            analysis.id,
+            results.overallScore,
+            results,
+            "completed",
+            tokenUsage
+          );
+          console.log(`Analysis ${analysis.id} completed successfully`);
+        } catch (aiError: any) {
+          console.error(`[Analysis ${analysis.id}] AI error:`, aiError?.message || aiError);
+          await storage.updateAnalysisResults(analysis.id, 0, {
+            overallScore: 0,
+            summary: "Analysis failed due to an error processing the request.",
+            categories: [],
+          }, "failed");
         }
-
-        const validated = analysisResultSchema.safeParse(parsedResult);
-        const results: AnalysisResult = validated.success
-          ? validated.data
-          : {
-              overallScore: parsedResult.overallScore ?? 0,
-              summary: parsedResult.summary ?? "Analysis completed with partial results.",
-              categories: Array.isArray(parsedResult.categories)
-                ? parsedResult.categories.map((c: any) => ({
-                    name: c.name ?? "Unknown",
-                    score: typeof c.score === "number" ? c.score : 0,
-                    status: ["pass", "warning", "fail"].includes(c.status) ? c.status : "warning",
-                    findings: Array.isArray(c.findings) ? c.findings : [],
-                    suggestions: Array.isArray(c.suggestions) ? c.suggestions : [],
-                  }))
-                : [],
-              improvedVersion: parsedResult.improvedVersion,
-              ...(parsedResult.investScores && { investScores: parsedResult.investScores }),
-              ...(typeof parsedResult.clarity === "number" && { clarity: parsedResult.clarity }),
-              ...(typeof parsedResult.completeness === "number" && { completeness: parsedResult.completeness }),
-              ...(typeof parsedResult.acceptanceCriteriaPresent === "boolean" && { acceptanceCriteriaPresent: parsedResult.acceptanceCriteriaPresent }),
-              ...(typeof parsedResult.userRoleDefined === "boolean" && { userRoleDefined: parsedResult.userRoleDefined }),
-              ...(typeof parsedResult.businessValueClear === "boolean" && { businessValueClear: parsedResult.businessValueClear }),
-              ...(parsedResult.complexity && { complexity: parsedResult.complexity }),
-              ...(parsedResult.riskLevel && { riskLevel: parsedResult.riskLevel }),
-              ...(Array.isArray(parsedResult.references) && parsedResult.references.length > 0
-                ? { references: parsedResult.references }
-                : refs.length > 0
-                  ? { references: refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" })) }
-                  : {}),
-            };
-
-        if (validated.success && !validated.data.references && refs.length > 0) {
-          results.references = refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" }));
-        }
-
-        const usage = response.usage;
-        const tokenUsage = usage ? {
-          promptTokens: usage.prompt_tokens || 0,
-          completionTokens: usage.completion_tokens || 0,
-          totalTokens: usage.total_tokens || 0,
-          model: response.model || "gpt-5.2",
-        } : undefined;
-
-        const updated = await storage.updateAnalysisResults(
-          analysis.id,
-          results.overallScore,
-          results,
-          "completed",
-          tokenUsage
-        );
-
-        res.json(updated);
-      } catch (aiError) {
-        console.error("AI analysis error:", aiError);
-        await storage.updateAnalysisResults(analysis.id, 0, {
-          overallScore: 0,
-          summary: "Analysis failed due to an error processing the request.",
-          categories: [],
-        }, "failed");
-        res.status(500).json({ error: "AI analysis failed" });
-      }
+      })().catch(err => console.error(`[Analysis] Unhandled error:`, err));
     } catch (error) {
       console.error("Error creating analysis:", error);
       res.status(500).json({ error: "Failed to create analysis" });

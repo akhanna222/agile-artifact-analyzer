@@ -12,7 +12,7 @@ const openai = new OpenAI({
 
 async function getRelevantReferences(content: string, artifactType: string): Promise<{ context: string; refs: { docName: string; pageNumber: number; excerpt: string }[] }> {
   try {
-    const results = await storage.searchReferenceDocumentsByText(content, 6);
+    const results = await storage.searchReferenceDocumentsByText(content, 3);
 
     if (results.length === 0) {
       return { context: "", refs: [] };
@@ -29,9 +29,9 @@ async function getRelevantReferences(content: string, artifactType: string): Pro
       sortedResults = [
         ...results.filter(r => r.docName === preferredDoc),
         ...results.filter(r => r.docName !== preferredDoc),
-      ].slice(0, 4);
+      ].slice(0, 3);
     } else {
-      sortedResults = results.slice(0, 4);
+      sortedResults = results.slice(0, 3);
     }
 
     const context = sortedResults.map(r =>

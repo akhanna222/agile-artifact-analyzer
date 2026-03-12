@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "B1iruaromm9a3eOIio4fI"
+uri = "file://docs/jira-backlog.md"
+type = "text"
+title = "Agile Artifact Analyzer — Jira Backlog"

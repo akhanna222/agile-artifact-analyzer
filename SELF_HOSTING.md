@@ -4,33 +4,24 @@
 
 - **Node.js** 20+ (LTS recommended)
 - **PostgreSQL** 14+ database
-- **OpenAI API Key** (GPT-4 or GPT-4o model access required)
+- **OpenAI API Key** (GPT-4o model access required)
 
-## Quick Start
+---
 
-### 1. Clone / Download the Project
+## Quick Start (Single Command)
 
-Download or copy the entire project directory to your VM.
+### 1. Download / Clone the Project
 
-### 2. Install Dependencies
+Download the project zip and extract it, or clone from GitHub.
 
-```bash
-npm install
-```
+### 2. Set Environment Variables
 
-### 3. Set Environment Variables
-
-Create a `.env` file in the project root (or export these variables):
+Create a `.env` file in the project root:
 
 ```bash
-# Required
 DATABASE_URL=postgresql://user:password@localhost:5432/artifact_analyzer
 SESSION_SECRET=your-random-secret-string-here
 OPENAI_API_KEY=sk-your-openai-api-key-here
-
-# Optional (defaults shown)
-NODE_ENV=production
-PORT=5000
 ```
 
 **Generate a secure SESSION_SECRET:**
@@ -38,48 +29,47 @@ PORT=5000
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 4. Set Up the Database
-
-Create the PostgreSQL database:
+### 3. Create the Database
 
 ```bash
 createdb artifact_analyzer
 ```
 
-Push the schema:
+### 4. Run the Setup Script
 
 ```bash
-npm run db:push
+bash setup.sh
 ```
 
-### 5. Build the Application
+This single command will:
+- Install all npm dependencies
+- Create all database tables (schema)
+- Create the admin user (`admin@mastercard.com` / `admin123`)
+- Process all 3 reference PDF documents for RAG (312 chunks total)
+
+### 5. Start the App
 
 ```bash
+# Development
+npm run dev
+
+# Production
 npm run build
-```
-
-### 6. Start the Application
-
-```bash
 npm start
 ```
 
-The app will be available at `http://localhost:5000`.
+The app will be available at `http://localhost:5000`
 
-### 7. First Login
+---
 
-On first startup, an admin account is automatically created:
-- **Email:** `admin@mastercard.com`
-- **Password:** `admin123`
+## Login Credentials (Default)
 
-### 8. Process Reference Documents
+| Field | Value |
+|-------|-------|
+| Email | `admin@mastercard.com` |
+| Password | `admin123` |
 
-After logging in as admin:
-1. Go to the **Admin** page
-2. Click the **Reference Docs** tab
-3. Click **Process All** to index the PDF documents for RAG
-
-The PDF files should be in the `attached_assets/` directory.
+Change the password after first login via the admin panel.
 
 ---
 
@@ -89,22 +79,36 @@ The PDF files should be in the `attached_assets/` directory.
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `SESSION_SECRET` | Yes | Secret for session encryption |
-| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
-| `NODE_ENV` | No | Set to `production` for production mode |
+| `OPENAI_API_KEY` | Yes (standalone) | Your OpenAI API key |
+| `NODE_ENV` | No | Set to `production` for production |
 | `PORT` | No | Server port (default: 5000) |
+
+> **On Replit**: `OPENAI_API_KEY` is not needed — the built-in AI integration handles it automatically.
 
 ---
 
-## Running with Docker (Optional)
+## Reference Documents (RAG)
 
-If you prefer Docker:
+The setup script automatically processes 3 PDFs from the `attached_assets/` folder:
+
+| Document | Chunks | Purpose |
+|----------|--------|---------|
+| Epic-Standards | 8 | Epic evaluation standards |
+| Feature-Standard | 4 | Feature evaluation standards |
+| The_Lighthouse | 300 | Company methodology guide |
+
+If you want to add your own documents later, log in as admin → Reference Docs tab → Upload & Process.
+
+---
+
+## Running with Docker
 
 ```dockerfile
 FROM node:20-alpine
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --production=false
+RUN npm ci
 COPY . .
 RUN npm run build
 
@@ -114,13 +118,24 @@ EXPOSE 5000
 CMD ["npm", "start"]
 ```
 
+**Build and run:**
 ```bash
 docker build -t artifact-analyzer .
+
 docker run -p 5000:5000 \
   -e DATABASE_URL=postgresql://user:pass@host:5432/db \
   -e SESSION_SECRET=your-secret \
   -e OPENAI_API_KEY=sk-your-key \
   artifact-analyzer
+```
+
+**First-time setup inside Docker:**
+```bash
+docker run --rm \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/db \
+  -e SESSION_SECRET=your-secret \
+  -e OPENAI_API_KEY=sk-your-key \
+  artifact-analyzer bash setup.sh
 ```
 
 ---
@@ -130,7 +145,10 @@ docker run -p 5000:5000 \
 ```bash
 npm install -g pm2
 
-# Start the app
+# Build first
+npm run build
+
+# Start
 pm2 start npm --name "artifact-analyzer" -- start
 
 # Auto-restart on reboot
@@ -143,17 +161,38 @@ pm2 logs artifact-analyzer
 
 ---
 
+## Recreating in a New Replit Account
+
+1. Create a new Repl (Node.js template)
+2. Upload the project zip (drag & drop into the Files panel)
+3. Add the **OpenAI AI Integration** from the Integrations panel
+4. Add a **PostgreSQL** database from the Database panel
+5. Add `SESSION_SECRET` to the Secrets panel
+6. Open the Shell and run:
+   ```bash
+   bash setup.sh
+   ```
+7. Click **Run**
+
+---
+
 ## Troubleshooting
 
 **"relation does not exist" errors:**
-Run `npm run db:push` to create/sync database tables.
-
-**Admin password lost:**
-Delete the admin user from the database and restart the app:
-```sql
-DELETE FROM users WHERE email = 'admin@mastercard.com';
+```bash
+npm run db:push
 ```
-A new password will be generated on next startup.
+
+**Admin password forgotten:**
+```bash
+npx tsx scripts/setup.ts
+```
+This resets the admin password back to `admin123`.
 
 **PDF processing fails:**
-Ensure PDF files are in the `attached_assets/` directory and have the expected filenames (check `server/pdf-processor.ts` for the file list).
+Ensure PDFs are in `attached_assets/` with these exact names:
+- `Epic-Standards_1773058422357.pdf`
+- `Feature-Standard_1773058422357.pdf`
+- `The_Lighthouse-v21-20260305_114446_1773058422357.pdf`
+
+Or re-process manually via admin panel → Reference Docs → Process All.

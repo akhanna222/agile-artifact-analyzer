@@ -1,642 +1,527 @@
 # Agile Artifact Analyzer — Jira Backlog
 
-> **Format:** Epic → Feature → User Story → Task  
-> **Project:** Agile Artifact Analyzer  
+> **Hierarchy:** Epic → Feature → Story → Task (Sub-task)
+> **Project:** Agile Artifact Analyzer
 > **Last Updated:** March 2026
 
 ---
 
-## EPIC 1 — User Authentication & Access Control
+# EPIC — agile-artifact-analyzer
+> An AI-powered platform that evaluates Agile artifacts (Epics, Features, User Stories, Tasks) against Scrum/SAFe/INVEST standards using GPT-4o, featuring Mastercard-inspired design, user authentication, admin management, usage analytics, and a RAG system built from company standard PDFs with page-level citations.
+
+---
+
+## FEATURE 1 — User Authentication & Access Control
 > Enable secure login, session management, and role-based access for all users.
 
 ---
 
-### Feature 1.1 — User Login & Session Management
-
-#### Story 1.1.1 — Login with Email & Password
-**As a** user,  
-**I want to** log in with my email and password,  
-**So that** I can securely access the Agile Artifact Analyzer.
+### STORY 1.1 — User Login & Session Management
+**As a** user,
+**I want to** log in securely and maintain my session,
+**So that** I can access the analyzer without re-authenticating on every visit.
 
 **Acceptance Criteria:**
 - Login form accepts email and password
 - Invalid credentials show a clear error message
 - Successful login redirects to the analysis dashboard
 - Session persists across browser refreshes
+- Logout button destroys session and redirects to login
 
 **Tasks:**
 - [ ] Build login form UI with email and password fields
-- [ ] Implement POST `/api/login` endpoint with bcrypt password check
-- [ ] Create session middleware using express-session
-- [ ] Add form validation with error messages
-- [ ] Redirect authenticated users away from login page
-
----
-
-#### Story 1.1.2 — Logout
-**As a** logged-in user,  
-**I want to** log out of the application,  
-**So that** my session is terminated securely.
-
-**Acceptance Criteria:**
-- Logout button visible in the header
-- Session is destroyed on logout
-- User is redirected to the login page after logout
-
-**Tasks:**
+- [ ] Implement POST `/api/login` endpoint with bcrypt password verification
+- [ ] Create session middleware using express-session with SESSION_SECRET
+- [ ] Add form validation with descriptive error messages
+- [ ] Redirect already-authenticated users away from login page
 - [ ] Add logout button to the top navigation bar
-- [ ] Implement POST `/api/logout` endpoint that destroys session
+- [ ] Implement POST `/api/logout` endpoint that destroys the session
 - [ ] Redirect to login page after successful logout
 
 ---
 
-#### Story 1.1.3 — Protected Routes
-**As a** system,  
-**I want to** protect all pages from unauthenticated access,  
-**So that** only logged-in users can use the application.
+### STORY 1.2 — Protected Routes & Authorization
+**As a** system,
+**I want to** protect all application routes from unauthorized access,
+**So that** only authenticated users can use the app and only admins can access admin features.
 
 **Acceptance Criteria:**
-- Unauthenticated users are redirected to login
-- API routes return 401 if no valid session
-- Admin-only routes return 403 for non-admin users
+- Unauthenticated users are redirected to login for all pages
+- API routes return HTTP 401 if no valid session exists
+- Admin-only routes return HTTP 403 for non-admin users
+- Admin users see the "Admin Panel" link in the navigation
+- Regular users cannot access the `/admin` page
 
 **Tasks:**
-- [ ] Create `requireAuth` middleware for all API routes
-- [ ] Create `requireAdmin` middleware for admin-only routes
-- [ ] Add frontend auth check redirecting to login if no session
-
----
-
-### Feature 1.2 — Role-Based Access Control
-
-#### Story 1.2.1 — Admin vs. Regular User Roles
-**As an** admin,  
-**I want to** have elevated access to the admin panel,  
-**So that** I can manage users, view analytics, and manage documents.
-
-**Acceptance Criteria:**
-- Admin users see "Admin Panel" link in navigation
-- Regular users cannot access `/admin` page
-- Admin flag stored in the user record in the database
-
-**Tasks:**
-- [ ] Add `is_admin` boolean field to users table
+- [ ] Create `requireAuth` middleware applied to all protected API routes
+- [ ] Create `requireAdmin` middleware applied to admin-only API routes
+- [ ] Add frontend auth check that redirects to login if session is absent
+- [ ] Add `is_admin` boolean column to users database table
 - [ ] Expose `isAdmin` flag in GET `/api/user` response
-- [ ] Conditionally render Admin Panel navigation link
-- [ ] Guard `/admin` route at both frontend and backend
+- [ ] Conditionally render Admin Panel navigation link based on `isAdmin`
+- [ ] Guard `/admin` frontend route and return 403 from backend for non-admins
 
 ---
 
-## EPIC 2 — AI-Powered Artifact Analysis
-> Analyze Agile artifacts (Epics, Features, User Stories, Tasks) against Scrum/SAFe/INVEST standards using GPT-4o.
+## FEATURE 2 — AI-Powered Artifact Analysis
+> Analyze Agile artifacts against Scrum/SAFe/INVEST standards using GPT-4o with async processing and real-time polling.
 
 ---
 
-### Feature 2.1 — Artifact Submission
-
-#### Story 2.1.1 — Submit Artifact for Analysis
-**As a** user,  
-**I want to** paste an Agile artifact and select its type,  
-**So that** the AI can evaluate it against quality standards.
+### STORY 2.1 — Artifact Submission & Async Processing
+**As a** user,
+**I want to** submit an Agile artifact and receive AI-powered quality analysis,
+**So that** I can understand how well it meets Agile standards.
 
 **Acceptance Criteria:**
-- User can enter a title for the artifact
-- User can select type: Epic, Feature, User Story, or Task
-- User can paste the artifact content in a text area
-- Submit button triggers analysis
-- Loading state shown while analysis is processing
+- User can enter a title, select artifact type (Epic/Feature/User Story/Task), and paste content
+- Submitting the form immediately shows a loading/pending state
+- Analysis processes in the background without blocking the UI
+- Frontend automatically polls and displays results when ready
+- A 90-second timeout shows a clear error if analysis hangs
+- Failed analyses show an error state with a retry option
 
 **Tasks:**
-- [ ] Build artifact submission form with title, type selector, and content textarea
-- [ ] Add type dropdown with options: Epic, Feature, User Story, Task
-- [ ] Implement POST `/api/analyses` returning `status: pending`
-- [ ] Show loading spinner / pending state after submission
-- [ ] Poll GET `/api/analyses/:id` every 2 seconds until status is `completed` or `failed`
-- [ ] Show 90-second timeout with error message if analysis hangs
+- [ ] Build artifact submission form with title input, type dropdown, and content textarea
+- [ ] Implement POST `/api/analyses` that saves artifact and returns `status: pending` immediately
+- [ ] Process analysis asynchronously after returning the pending response
+- [ ] Show loading spinner and pending state in the UI after submission
+- [ ] Poll GET `/api/analyses/:id` every 2 seconds until `completed` or `failed`
+- [ ] Implement AbortController with 90-second timeout on OpenAI API call
+- [ ] Update analysis record with results and `status: completed` on success
+- [ ] Set `status: failed` and store error details on failure
+- [ ] Store token usage (prompt, completion, total tokens) and model name with each analysis
 
 ---
 
-#### Story 2.1.2 — Async Analysis Processing
-**As a** user,  
-**I want to** see analysis results as soon as they are ready,  
-**So that** the UI remains responsive while the AI processes my artifact.
+### STORY 2.2 — Analysis Results — Score & Summary
+**As a** user,
+**I want to** see an overall quality score and plain-language summary for my artifact,
+**So that** I can quickly understand its overall quality level.
 
 **Acceptance Criteria:**
-- API immediately returns after submission with `status: pending`
-- AI processing happens in the background
-- Frontend polls and updates automatically when results arrive
-- Failed analyses show a clear error state
+- Overall score displayed as a number out of 100
+- Score colour-coded: green (≥75), amber (50–74), red (<50)
+- AI-generated plain-language summary paragraph displayed below the score
+- Score animates in when results first load
 
 **Tasks:**
-- [ ] Process analysis asynchronously after returning `pending` response
-- [ ] Update analysis record with results, score, and `status: completed`
-- [ ] Handle errors by setting `status: failed` with error details
-- [ ] Implement AbortController with 90s timeout on OpenAI API call
-- [ ] Return token usage data (prompt, completion, total) with results
+- [ ] Display overall score with colour-coded badge and circular progress ring
+- [ ] Render the AI-generated summary text beneath the score
+- [ ] Add animated score reveal transition when results load
 
 ---
 
-### Feature 2.2 — Analysis Results Display
-
-#### Story 2.2.1 — Overall Score and Summary
-**As a** user,  
-**I want to** see an overall quality score and summary for my artifact,  
-**So that** I can quickly understand its quality level.
+### STORY 2.3 — Analysis Results — Category Breakdown
+**As a** user,
+**I want to** see quality scores and findings broken down by category,
+**So that** I know exactly which areas of my artifact need improvement.
 
 **Acceptance Criteria:**
-- Overall score shown as a number out of 100
-- Color-coded indicator: green (≥75), amber (50–74), red (<50)
-- Plain-language summary paragraph displayed
-- Score updates in real-time as analysis completes
+- Each category shows: name, score (0–100), status (pass/warning/fail)
+- Findings listed per category explaining what was found
+- Suggestions listed per category explaining how to improve
+- Categories are tailored to the artifact type submitted
 
 **Tasks:**
-- [ ] Display overall score with colour-coded badge/ring
-- [ ] Render AI-generated summary text
-- [ ] Add animated score reveal when results load
-
----
-
-#### Story 2.2.2 — Category Breakdown
-**As a** user,  
-**I want to** see scores and findings broken down by quality category,  
-**So that** I know specifically what areas need improvement.
-
-**Acceptance Criteria:**
-- Each category shows name, score, and pass/warning/fail status
-- Findings listed per category
-- Suggestions listed per category
-- Categories vary by artifact type (Epic, Feature, Story, Task)
-
-**Tasks:**
-- [ ] Render category cards with score, status badge, findings, and suggestions
-- [ ] Define category sets per artifact type in the AI prompt
+- [ ] Render category cards with score, status badge, findings list, and suggestions list
+- [ ] Define per-artifact-type category sets in the AI prompt (Epic/Feature/Story/Task)
 - [ ] Map status values (pass/warning/fail) to colours (green/amber/red)
 
 ---
 
-#### Story 2.2.3 — INVEST Scoring for User Stories
-**As a** user analyzing a User Story,  
-**I want to** see individual INVEST dimension scores,  
-**So that** I can evaluate it against the INVEST framework.
+### STORY 2.4 — Analysis Results — INVEST Scoring (User Stories)
+**As a** user analyzing a User Story,
+**I want to** see scores for each INVEST dimension,
+**So that** I can evaluate it against the widely accepted INVEST framework.
 
 **Acceptance Criteria:**
-- INVEST breakdown shown only for User Story type
-- Six dimensions scored individually: Independent, Negotiable, Valuable, Estimable, Small, Testable
-- Each score shown as a progress bar out of 100
+- INVEST section appears only for User Story artifact type
+- Six dimensions scored independently: Independent, Negotiable, Valuable, Estimable, Small, Testable
+- Each score displayed as a labelled progress bar out of 100
 
 **Tasks:**
-- [ ] Add `investScores` object to analysis result schema
-- [ ] Include INVEST scoring instructions in User Story AI prompt
-- [ ] Build INVEST score display component with 6 progress bars
-- [ ] Show INVEST section only when artifact type is User Story
+- [ ] Add `investScores` object to the analysis result schema
+- [ ] Include INVEST scoring instructions in the User Story AI prompt
+- [ ] Build INVEST score display component with 6 labelled progress bars
+- [ ] Conditionally render INVEST section only when artifact type is User Story
 
 ---
 
-#### Story 2.2.4 — Enhanced Metadata Fields
-**As a** user,  
-**I want to** see additional quality indicators beyond the main score,  
-**So that** I have a complete picture of my artifact's quality.
+### STORY 2.5 — Analysis Results — Enhanced Metadata & Quality Indicators
+**As a** user,
+**I want to** see additional quality indicators alongside the main score,
+**So that** I have a complete and nuanced picture of my artifact's quality.
 
 **Acceptance Criteria:**
 - Clarity score (0–100)
 - Completeness score (0–100)
-- Acceptance criteria presence (yes/no)
-- User role defined (yes/no)
-- Business value clear (yes/no)
-- Complexity level (Low/Medium/High)
-- Risk level (Low/Medium/High)
+- Acceptance criteria present: Yes/No
+- User role defined: Yes/No
+- Business value clear: Yes/No
+- Complexity: Low / Medium / High
+- Risk level: Low / Medium / High
 
 **Tasks:**
-- [ ] Add metadata fields to analysis result schema
-- [ ] Include metadata extraction instructions in AI prompt
-- [ ] Build metadata display panel showing all 7 indicators
+- [ ] Add all 7 metadata fields to the analysis result schema
+- [ ] Include metadata extraction instructions in the AI prompt
+- [ ] Build a metadata indicator panel displaying all 7 fields with icons
 
 ---
 
-#### Story 2.2.5 — AI-Generated Improved Version
-**As a** user,  
-**I want to** see a rewritten version of my artifact,  
-**So that** I have an example of how to improve it.
+### STORY 2.6 — Analysis Results — AI-Generated Improved Version
+**As a** user,
+**I want to** see a rewritten version of my artifact produced by the AI,
+**So that** I have a concrete example of how to improve it.
 
 **Acceptance Criteria:**
-- AI rewrites the artifact applying all suggestions
-- Improved version shown in a collapsible or separate panel
-- User can copy the improved version to clipboard
+- AI rewrites the artifact applying all suggested improvements
+- Improved version shown in a clearly labelled panel
+- User can copy the improved version to clipboard with one click
 
 **Tasks:**
-- [ ] Add `improvedVersion` field to analysis result schema
-- [ ] Instruct AI to rewrite the artifact in the prompt
-- [ ] Display improved version in a styled code/text block
-- [ ] Add copy-to-clipboard button
+- [ ] Add `improvedVersion` field to the analysis result schema
+- [ ] Instruct AI to produce a rewritten artifact in the prompt
+- [ ] Display improved version in a styled text/code block
+- [ ] Add copy-to-clipboard button with visual confirmation
 
 ---
 
-#### Story 2.2.6 — RAG Document References with Page Citations
-**As a** user,  
-**I want to** see which reference documents informed the analysis,  
-**So that** I can understand the standards being applied.
+### STORY 2.7 — Analysis Results — RAG Citations from Reference Documents
+**As a** user,
+**I want to** see which company standard document pages informed the analysis,
+**So that** I understand the specific standards being applied to my artifact.
 
 **Acceptance Criteria:**
 - Up to 3 relevant document excerpts shown per analysis
-- Each citation shows: document name, page number, excerpt, and relevance explanation
-- Citations link to the document source name
+- Each citation displays: document name, page number, excerpt text, and relevance explanation
+- Citations visually distinguished from the main analysis content
 
 **Tasks:**
-- [ ] Search reference documents using full-text search (tsvector/tsquery)
-- [ ] Retrieve top 3 most relevant chunks (max 800 chars each)
-- [ ] Inject retrieved chunks into AI prompt as context
-- [ ] Add `references` array to analysis result schema
-- [ ] Build citations display component with doc name, page, excerpt, and relevance
+- [ ] Search reference documents using PostgreSQL full-text search at analysis time
+- [ ] Retrieve top 3 most relevant chunks (max 800 characters each)
+- [ ] Inject retrieved chunks into the AI prompt as grounding context
+- [ ] Add `references` array to the analysis result schema
+- [ ] Build citations panel showing doc name, page number, excerpt, and relevance per item
 
 ---
 
-### Feature 2.3 — Analysis History
-
-#### Story 2.3.1 — View Past Analyses
-**As a** user,  
-**I want to** see a list of all my previous analyses,  
-**So that** I can review and track quality improvements over time.
+### STORY 2.8 — Analysis History
+**As a** user,
+**I want to** view and manage my previous analyses,
+**So that** I can track quality improvements over time and remove old entries.
 
 **Acceptance Criteria:**
-- List shows all analyses for the current user
-- Each item shows: title, artifact type, overall score, date
-- Clicking an item loads the full results
-- Analyses sorted newest first
+- Sidebar lists all analyses for the current user, newest first
+- Each item shows title, artifact type, overall score, and date
+- Clicking an item loads its full results
+- Empty state shown when no analyses exist
+- Each item has a delete button with a confirmation step
+- Deleting removes the item from the list immediately
 
 **Tasks:**
-- [ ] Implement GET `/api/analyses` returning user's analyses
-- [ ] Build analysis history list in the sidebar or left panel
-- [ ] Add click handler to load selected analysis results
-- [ ] Show empty state when no analyses exist yet
-
----
-
-#### Story 2.3.2 — Delete an Analysis
-**As a** user,  
-**I want to** delete an analysis I no longer need,  
-**So that** my history stays clean and relevant.
-
-**Acceptance Criteria:**
-- Delete button on each analysis list item
-- Confirmation before deletion
-- Analysis removed from the list immediately after deletion
-
-**Tasks:**
+- [ ] Implement GET `/api/analyses` returning the current user's analyses ordered by date
+- [ ] Build analysis history list in the sidebar with title, type badge, score, and date
+- [ ] Add click handler on each list item to load and display its results
+- [ ] Show empty state illustration and prompt when no analyses exist
 - [ ] Implement DELETE `/api/analyses/:id` endpoint
-- [ ] Add delete button to each list item with confirmation dialog
-- [ ] Invalidate query cache after successful deletion
+- [ ] Add delete button to each list item with a confirmation dialog
+- [ ] Invalidate and refresh the analyses query cache after successful deletion
 
 ---
 
-## EPIC 3 — Admin Panel
-> Provide administrators with tools to manage users, monitor usage, and control reference documents.
+## FEATURE 3 — Admin Panel
+> Provide administrators with tools to manage users, monitor platform usage, and control the RAG knowledge base.
 
 ---
 
-### Feature 3.1 — Usage Analytics Dashboard
-
-#### Story 3.1.1 — View Platform Usage Statistics
-**As an** admin,  
-**I want to** see aggregated usage statistics across all users,  
-**So that** I can monitor platform adoption and AI costs.
+### STORY 3.1 — Usage Analytics Dashboard
+**As an** admin,
+**I want to** see aggregated usage statistics for the entire platform,
+**So that** I can monitor adoption and track AI API costs.
 
 **Acceptance Criteria:**
-- Total number of analyses run
-- Total tokens consumed (prompt, completion, total)
-- Breakdown by artifact type
-- Per-user analysis counts
-- Data refreshes on page load
+- Total number of analyses run shown as a headline metric
+- Total token usage broken down by prompt, completion, and total
+- Analysis count broken down by artifact type
+- Per-user analysis count table
+- All data refreshes on each page load
 
 **Tasks:**
-- [ ] Implement GET `/api/admin/usage` aggregation query
-- [ ] Show total analyses count card
-- [ ] Show token usage breakdown (prompt / completion / total)
-- [ ] Build chart or table for analyses by artifact type
-- [ ] Build per-user breakdown table
+- [ ] Implement GET `/api/admin/usage` with aggregation queries across all analyses
+- [ ] Display total analyses count as a headline card
+- [ ] Display token usage breakdown (prompt / completion / total)
+- [ ] Build artifact type breakdown table or chart
+- [ ] Build per-user activity table with email and analysis count
 
 ---
 
-### Feature 3.2 — User Management
-
-#### Story 3.2.1 — View All Users
-**As an** admin,  
-**I want to** see a list of all registered users,  
-**So that** I can monitor who has access to the platform.
+### STORY 3.2 — User Management
+**As an** admin,
+**I want to** create, view, and remove user accounts,
+**So that** I can control who has access to the platform.
 
 **Acceptance Criteria:**
-- Table lists all users with email, role, and registration date
-- Admin users are visually distinguished
+- Table lists all users with email, admin role indicator, and registration date
+- Admin can create a new user with email, password, and optional admin flag
+- Duplicate email shows a validation error on creation
+- Admin can delete any user except their own account
+- Confirmation dialog shown before deletion
 
 **Tasks:**
-- [ ] Implement GET `/api/admin/users` endpoint
+- [ ] Implement GET `/api/admin/users` endpoint returning all users
 - [ ] Build users table with email, isAdmin badge, and createdAt columns
-
----
-
-#### Story 3.2.2 — Create New User
-**As an** admin,  
-**I want to** create user accounts for team members,  
-**So that** I can provision access without self-registration.
-
-**Acceptance Criteria:**
-- Admin can enter email, password, and select admin role
-- New user appears in the users list immediately
-- Duplicate email shows validation error
-
-**Tasks:**
-- [ ] Implement POST `/api/admin/users` endpoint with validation
-- [ ] Build "Create User" form in admin panel
-- [ ] Hash password with bcrypt before storing
-- [ ] Refresh users list after successful creation
-
----
-
-#### Story 3.2.3 — Delete User
-**As an** admin,  
-**I want to** remove a user account,  
-**So that** I can revoke access when needed.
-
-**Acceptance Criteria:**
-- Delete button on each user row
-- Admin cannot delete their own account
-- Confirmation dialog before deletion
-
-**Tasks:**
+- [ ] Implement POST `/api/admin/users` with email/password/isAdmin validation
+- [ ] Hash password with bcrypt before storing on creation
+- [ ] Build Create User form in admin panel with validation error display
 - [ ] Implement DELETE `/api/admin/users/:id` endpoint
-- [ ] Prevent self-deletion with validation error
-- [ ] Add delete button with confirmation dialog to user table rows
+- [ ] Prevent self-deletion with a validation error response
+- [ ] Add delete button per row with confirmation dialog
+- [ ] Refresh users list automatically after create or delete
 
 ---
 
-### Feature 3.3 — Reference Document Management
-
-#### Story 3.3.1 — View Processed Reference Documents
-**As an** admin,  
-**I want to** see a list of all uploaded reference documents and their chunk counts,  
-**So that** I can verify the RAG knowledge base is populated correctly.
+### STORY 3.3 — Reference Document Management
+**As an** admin,
+**I want to** view, process, and clear reference documents in the RAG knowledge base,
+**So that** I can keep the AI's grounding context up to date.
 
 **Acceptance Criteria:**
-- List shows document name and number of processed chunks
-- Empty state message if no documents are loaded
+- Documents tab lists all processed documents with their chunk counts
+- Empty state shown if no documents are loaded
+- "Process All" button triggers bulk PDF processing and shows results
+- "Delete All" button clears the entire knowledge base after confirmation
 
 **Tasks:**
-- [ ] Implement GET `/api/admin/documents` endpoint returning doc names and chunk counts
-- [ ] Build documents list in admin panel Documents tab
+- [ ] Implement GET `/api/admin/documents` returning document names and chunk counts
+- [ ] Build documents list in admin panel Documents tab with empty state
+- [ ] Implement POST `/api/admin/documents/process-all` to run PDF extraction and chunking
+- [ ] Display per-document processing results (name, chunks, status) after processing
+- [ ] Show success/failure toast notification after processing completes
+- [ ] Implement DELETE `/api/admin/documents` to clear all chunks from the database
+- [ ] Add confirmation dialog before triggering bulk delete
+- [ ] Refresh document list after process or delete actions
 
 ---
 
-#### Story 3.3.2 — Process All Reference Documents
-**As an** admin,  
-**I want to** trigger processing of all PDF documents in bulk,  
-**So that** the RAG knowledge base is populated from the source PDFs.
+## FEATURE 4 — RAG (Retrieval-Augmented Generation) System
+> Build and query a knowledge base from company standards PDFs to ground AI analysis in real documented standards.
+
+---
+
+### STORY 4.1 — PDF Processing Pipeline
+**As a** system,
+**I want to** extract and store text from company standards PDFs,
+**So that** relevant content can be retrieved and used to ground AI analysis.
 
 **Acceptance Criteria:**
-- "Process All" button triggers PDF processing
-- Progress or success message shown after completion
-- Chunk counts update after processing
+- PDFs are parsed page by page using pdf-parse
+- Each page stored as a separate chunk with document name and page number
+- Processing works correctly in both development and production (CJS/ESM compatible)
+- Bulk processing returns a result summary per document
 
 **Tasks:**
-- [ ] Implement POST `/api/admin/documents/process-all` endpoint
-- [ ] Run PDF text extraction and chunking for each PDF
-- [ ] Store chunks in `reference_documents` table
-- [ ] Return processing results (doc name, page count, status) per document
-- [ ] Show success/failure toast in the UI
+- [ ] Integrate `pdf-parse` library using `globalThis.require` for CJS/ESM compatibility
+- [ ] Split extracted PDF text into page-level chunks
+- [ ] Store each chunk with `doc_name`, `page_number`, and `content` fields in `reference_documents` table
+- [ ] Add `pdf-parse` and `bcrypt` to `neverBundle` in the production build config
+- [ ] Implement `processAllDocuments()` function returning per-document results
 
 ---
 
-#### Story 3.3.3 — Delete All Reference Documents
-**As an** admin,  
-**I want to** clear the entire document knowledge base,  
-**So that** I can re-process documents from scratch if needed.
+### STORY 4.2 — Full-Text Search & Context Retrieval
+**As a** system,
+**I want to** retrieve the most relevant document chunks for a given artifact,
+**So that** the AI prompt is grounded in applicable company standards.
 
 **Acceptance Criteria:**
-- "Delete All" button removes all document chunks from the database
-- Confirmation dialog before deletion
-- Document list shows empty state after deletion
-
-**Tasks:**
-- [ ] Implement DELETE `/api/admin/documents` endpoint clearing all chunks
-- [ ] Add confirmation dialog before triggering delete
-- [ ] Refresh document list after deletion
-
----
-
-## EPIC 4 — RAG (Retrieval-Augmented Generation) System
-> Build a knowledge base from uploaded company standards PDFs to ground AI analysis in real standards.
-
----
-
-### Feature 4.1 — PDF Processing Pipeline
-
-#### Story 4.1.1 — Extract and Chunk PDF Content
-**As a** system,  
-**I want to** extract text from uploaded PDFs and split it into page-level chunks,  
-**So that** relevant content can be retrieved during AI analysis.
-
-**Acceptance Criteria:**
-- PDFs parsed page by page using pdf-parse
-- Each page stored as a separate chunk in the database
-- Document name and page number stored with each chunk
-
-**Tasks:**
-- [ ] Integrate `pdf-parse` library for text extraction
-- [ ] Split extracted text into page-level chunks
-- [ ] Store each chunk with `doc_name`, `page_number`, and `content` fields
-- [ ] Handle CJS/ESM compatibility for production builds
-
----
-
-#### Story 4.1.2 — Full-Text Search Over Document Chunks
-**As a** system,  
-**I want to** search document chunks using full-text search,  
-**So that** the most relevant excerpts are retrieved for each analysis.
-
-**Acceptance Criteria:**
-- Text search uses PostgreSQL `tsvector/tsquery`
+- Full-text search uses PostgreSQL `tsvector` / `tsquery`
 - Top 3 most relevant chunks retrieved per query
-- Each chunk limited to 800 characters for prompt efficiency
+- Chunks truncated to 800 characters before prompt injection
+- Retrieved chunks included in AI prompt with document name and page number
 
 **Tasks:**
-- [ ] Implement `searchReferenceDocumentsByText` using PostgreSQL `to_tsvector` and `to_tsquery`
-- [ ] Return top 3 results ordered by relevance rank
-- [ ] Truncate chunk content to 800 characters before injection into prompt
+- [ ] Implement `searchReferenceDocumentsByText(query, limit)` using `to_tsvector` and `to_tsquery`
+- [ ] Order results by full-text relevance rank (`ts_rank`)
+- [ ] Truncate chunk content to 800 characters before use
+- [ ] Format retrieved chunks as numbered context blocks in the AI prompt
 
 ---
 
-## EPIC 5 — Infrastructure & Deployment
-> Set up the development, build, and production deployment pipeline.
+## FEATURE 5 — Infrastructure & Deployment
+> Set up development tooling, production build pipeline, and one-command deployment for Linux servers.
 
 ---
 
-### Feature 5.1 — Development Environment
-
-#### Story 5.1.1 — Local Development Setup
-**As a** developer,  
-**I want to** run the application locally with a single command,  
-**So that** I can develop and test features quickly.
+### STORY 5.1 — Development Environment Setup
+**As a** developer,
+**I want to** run the entire application with a single command locally,
+**So that** I can develop and test features rapidly.
 
 **Acceptance Criteria:**
-- `npm run dev` starts both backend (Express) and frontend (Vite) on port 5000
-- Hot reload works for frontend changes
-- Environment variables loaded from `.env` file
+- `npm run dev` starts Express backend and Vite frontend together on port 5000
+- Frontend changes hot-reload without restarting the server
+- Environment variables loaded from a `.env` file
+- `.env.example` documents all required variables
 
 **Tasks:**
-- [ ] Configure Express server with Vite middleware for dev mode
-- [ ] Set up `.env.example` with all required variables documented
-- [ ] Ensure `tsx` runs TypeScript server directly without build step
+- [ ] Configure Express server with Vite dev middleware for unified serving
+- [ ] Create `.env.example` documenting DATABASE_URL, SESSION_SECRET, OPENAI_API_KEY, PORT
+- [ ] Verify `tsx` runs TypeScript server directly without a prior build step
 
 ---
 
-### Feature 5.2 — Production Build & Deployment
-
-#### Story 5.2.1 — Production Build Script
-**As a** developer,  
-**I want to** build the app into a single production bundle,  
-**So that** it can be deployed to any Node.js server.
+### STORY 5.2 — Production Build Pipeline
+**As a** developer,
+**I want to** compile the app into a production-ready bundle,
+**So that** it can be deployed to any standard Node.js server.
 
 **Acceptance Criteria:**
-- `npm run build` compiles frontend (Vite) and backend (esbuild)
-- Output is a single `dist/index.cjs` file
-- Static frontend assets served by Express in production
+- `npm run build` compiles frontend (Vite) and backend (esbuild) together
+- Output is a single `dist/index.cjs` file with static assets at `dist/public`
+- Native modules (pdf-parse, bcrypt) excluded from bundling and loaded at runtime
+- `npm start` runs the production build successfully
 
 **Tasks:**
-- [ ] Configure esbuild to bundle server into `dist/index.cjs`
-- [ ] Add `pdf-parse` and `bcrypt` to `neverBundle` (native modules)
-- [ ] Configure Vite to output static assets to `dist/public`
-- [ ] Serve static assets from Express in production mode
+- [ ] Configure esbuild to bundle Express server into `dist/index.cjs`
+- [ ] Add `pdf-parse` and `bcrypt` to `neverBundle` list in `script/build.ts`
+- [ ] Configure Vite to output static frontend assets to `dist/public`
+- [ ] Verify `npm start` serves both API and frontend correctly in production mode
 
 ---
 
-#### Story 5.2.2 — One-Command Linux Installation
-**As a** system administrator,  
-**I want to** set up the entire application with a single shell script,  
-**So that** I can deploy it on any fresh Linux server without manual steps.
+### STORY 5.3 — One-Command Linux Installation Script
+**As a** system administrator,
+**I want to** run a single shell script on a fresh Linux server to set up the entire application,
+**So that** I can deploy without manually configuring dependencies, databases, or environment files.
 
 **Acceptance Criteria:**
-- Script installs Node.js 20 if not present
-- Script installs and configures PostgreSQL if not present
-- Script creates database and database user automatically
-- Script generates `.env` file with secure random secrets
-- Script prompts for OpenAI API key
-- Script runs database schema creation, admin seeding, and document loading
-- Script builds app and optionally creates a systemd service
+- Script supports Ubuntu 20.04+, Debian 11+, CentOS/RHEL 8+
+- Installs Node.js 20 via nvm if not present
+- Installs and starts PostgreSQL if not present
+- Creates a dedicated database and database user with a random password
+- Generates a `.env` file with all secrets auto-populated
+- Prompts interactively for the OpenAI API key
+- Runs schema creation, admin seeding, and document loading automatically
+- Offers to create a systemd service for auto-restart on reboot
+- Asks whether to start the app immediately after setup
 
 **Tasks:**
-- [ ] Write `install.sh` for Ubuntu/Debian/CentOS support
-- [ ] Add Node.js 20 installation via nvm
-- [ ] Add PostgreSQL installation and database creation
-- [ ] Add `.env` auto-generation with `openssl rand` for secrets
-- [ ] Add OpenAI key prompt
-- [ ] Call `scripts/setup.ts` for schema + seed + documents
-- [ ] Add optional systemd service creation
+- [ ] Write `install.sh` with OS detection for Debian/Ubuntu and CentOS/RHEL
+- [ ] Add Node.js 20 installation via nvm with fallback detection
+- [ ] Add PostgreSQL installation, initialization, and service startup
+- [ ] Create dedicated PostgreSQL user and database with `openssl rand` password
+- [ ] Auto-generate `.env` with DATABASE_URL, SESSION_SECRET, and PORT
+- [ ] Prompt user to enter OpenAI API key and save it to `.env`
+- [ ] Run `npm install`, then `npx tsx scripts/setup.ts` for full DB setup
+- [ ] Run `npm run build` to compile production bundle
+- [ ] Offer systemd service creation with enable and start
+- [ ] Prompt to start app immediately and run `npm start` if confirmed
 
 ---
 
-#### Story 5.2.3 — Database Schema Setup Script
-**As a** developer,  
-**I want to** run a single script that creates the schema and seeds all data,  
-**So that** I can recreate a fully working database from scratch.
+### STORY 5.4 — Database Setup & Seed Script
+**As a** developer or administrator,
+**I want to** run a single script that creates the schema and loads all seed data,
+**So that** I can reproduce a fully working database from scratch on any environment.
 
 **Acceptance Criteria:**
-- `npx tsx scripts/setup.ts` creates all tables
-- Admin user created or password reset to `admin123`
-- Reference documents loaded from SQL seed file (fast path)
-- Falls back to PDF re-processing if seed file unavailable
+- `npx tsx scripts/setup.ts` creates all tables via Drizzle schema push
+- Admin user (`admin@mastercard.com` / `admin123`) created or password reset
+- Reference documents loaded from `seeds/reference_documents.sql` if present (fast path)
+- Falls back to re-processing PDFs from `seeds/pdfs/` if SQL seed unavailable
+- Script exits with a clear success message and login instructions
 
 **Tasks:**
-- [ ] Run `drizzle-kit push` to create schema from TypeScript definitions
-- [ ] Upsert admin user with bcrypt-hashed password
-- [ ] Load `seeds/reference_documents.sql` if present (312 chunks)
-- [ ] Fall back to `processAllDocuments()` if SQL seed not found
-- [ ] Exit cleanly with success/failure status
+- [ ] Run `drizzle-kit push` to sync schema from TypeScript definitions to the database
+- [ ] Upsert admin user: insert if new, reset password if existing
+- [ ] Check `reference_documents` table count — skip loading if already populated
+- [ ] Load `seeds/reference_documents.sql` (312 chunks) if file exists
+- [ ] Copy PDFs from `seeds/pdfs/` to `attached_assets/` and call `processAllDocuments()` as fallback
+- [ ] Print login credentials and start commands on successful completion
 
 ---
 
-## EPIC 6 — Jira Integration (Planned)
-> Allow users to import Agile artifacts directly from Jira for analysis.
+## FEATURE 6 — Jira Integration (Planned)
+> Allow users to connect their Jira account and import artifacts directly for analysis without copy-pasting.
 
 ---
 
-### Feature 6.1 — Jira OAuth Connection
-
-#### Story 6.1.1 — Connect Jira Account
-**As a** user,  
-**I want to** connect my Jira account to the analyzer,  
-**So that** I can import user stories and epics directly without copy-pasting.
+### STORY 6.1 — Jira OAuth Connection
+**As a** user,
+**I want to** connect my Jira account to the analyzer via OAuth,
+**So that** I can import issues directly without manually copying text.
 
 **Acceptance Criteria:**
-- "Connect Jira" button initiates OAuth 2.0 flow
-- User is redirected to Atlassian to authorize access
-- On success, connection status shown in the UI
-- On disconnect, Jira tokens are removed
+- "Connect Jira" button initiates Atlassian OAuth 2.0 authorization flow
+- User is redirected to Atlassian to grant access
+- On success, connection status is shown in the UI
+- On disconnect, stored Jira tokens are removed
 
 **Tasks:**
-- [ ] Set up Atlassian OAuth 2.0 app credentials
-- [ ] Implement OAuth callback endpoint `/api/jira/callback`
-- [ ] Store Jira access token securely per user
-- [ ] Build Jira connection status UI on connect page
+- [ ] Register an Atlassian OAuth 2.0 app and obtain client credentials
+- [ ] Implement OAuth authorization redirect from `/api/jira/authorize`
+- [ ] Implement OAuth callback endpoint at `/api/jira/callback` to exchange code for tokens
+- [ ] Store Jira access token and refresh token securely per user in the database
+- [ ] Build Jira connection status UI on the connect page (connected / disconnected states)
+- [ ] Implement disconnect endpoint that removes stored tokens
 
 ---
 
-#### Story 6.1.2 — Import Jira Issue for Analysis
-**As a** user,  
-**I want to** search for a Jira issue by key and import it,  
-**So that** I can analyze it without manually copying the text.
+### STORY 6.2 — Import Jira Issue for Analysis
+**As a** user,
+**I want to** search for a Jira issue by its key and import it into the analyzer,
+**So that** I can analyze real backlog items without copy-pasting.
 
 **Acceptance Criteria:**
-- User enters a Jira issue key (e.g. `PROJ-123`)
-- Issue summary and description fetched from Jira API
-- Issue type mapped to analyzer type (Epic/Story/Task)
-- Imported artifact pre-fills the analysis form
+- User enters a Jira issue key (e.g. `PROJ-123`) in a search field
+- Issue summary and description are fetched from the Jira REST API
+- Jira issue type is mapped to analyzer artifact type (Epic/Story/Task)
+- Fetched data pre-populates the analysis submission form
+- Invalid keys or permission errors show a clear error message
 
 **Tasks:**
-- [ ] Implement GET `/api/jira/issue/:key` fetching issue from Jira REST API
-- [ ] Map Jira issue type to analyzer artifact type
-- [ ] Pre-populate analysis form with fetched issue data
-- [ ] Handle Jira API errors gracefully (invalid key, no access)
+- [ ] Implement GET `/api/jira/issue/:key` fetching issue details from Jira REST API v3
+- [ ] Map Jira issue types (Epic, Story, Sub-task, Task) to analyzer artifact types
+- [ ] Pre-populate analysis form title and content fields with fetched issue data
+- [ ] Handle API errors gracefully: invalid key, expired token, no permission
+- [ ] Trigger token refresh automatically when access token is expired
 
 ---
 
-## Summary Table
+## Summary
 
-| Epic | Features | Stories | Tasks |
-|------|----------|---------|-------|
-| 1 — Authentication & Access Control | 2 | 4 | 11 |
-| 2 — AI-Powered Artifact Analysis | 3 | 8 | 27 |
-| 3 — Admin Panel | 3 | 5 | 13 |
-| 4 — RAG System | 1 | 2 | 5 |
-| 5 — Infrastructure & Deployment | 2 | 3 | 13 |
-| 6 — Jira Integration (Planned) | 1 | 2 | 7 |
-| **Total** | **12** | **24** | **76** |
+| | Count |
+|---|---|
+| **Epic** | 1 |
+| **Features** | 6 |
+| **Stories** | 17 |
+| **Tasks** | 76 |
+| **Total Story Points** | 111 |
 
----
-
-## Story Point Estimates (Fibonacci)
+### Story Point Estimates (Fibonacci)
 
 | Story | Points |
 |-------|--------|
-| Login & Session | 3 |
-| Logout | 1 |
-| Protected Routes | 2 |
-| Role-Based Access | 3 |
-| Artifact Submission Form | 5 |
-| Async Analysis Processing | 8 |
-| Overall Score Display | 3 |
-| Category Breakdown | 5 |
-| INVEST Scoring | 5 |
-| Enhanced Metadata Fields | 3 |
-| AI-Generated Improved Version | 3 |
-| RAG Document Citations | 8 |
-| Analysis History | 3 |
-| Delete Analysis | 2 |
-| Usage Analytics Dashboard | 5 |
-| User Management (View/Create/Delete) | 5 |
-| Reference Document Management | 5 |
-| PDF Processing Pipeline | 8 |
-| Full-Text Search | 5 |
-| Local Dev Setup | 2 |
-| Production Build | 5 |
-| Linux Installation Script | 8 |
-| Database Setup Script | 3 |
-| Jira OAuth Connection | 8 |
-| Jira Issue Import | 5 |
+| 1.1 — User Login & Session Management | 3 |
+| 1.2 — Protected Routes & Authorization | 3 |
+| 2.1 — Artifact Submission & Async Processing | 8 |
+| 2.2 — Results: Score & Summary | 3 |
+| 2.3 — Results: Category Breakdown | 5 |
+| 2.4 — Results: INVEST Scoring | 5 |
+| 2.5 — Results: Enhanced Metadata | 3 |
+| 2.6 — Results: AI-Improved Version | 3 |
+| 2.7 — Results: RAG Citations | 8 |
+| 2.8 — Analysis History | 5 |
+| 3.1 — Usage Analytics Dashboard | 5 |
+| 3.2 — User Management | 5 |
+| 3.3 — Reference Document Management | 5 |
+| 4.1 — PDF Processing Pipeline | 8 |
+| 4.2 — Full-Text Search & Retrieval | 5 |
+| 5.1 — Development Environment Setup | 2 |
+| 5.2 — Production Build Pipeline | 5 |
+| 5.3 — Linux Installation Script | 8 |
+| 5.4 — Database Setup & Seed Script | 3 |
+| 6.1 — Jira OAuth Connection | 8 |
+| 6.2 — Import Jira Issue | 5 |
+| **Total** | **111** |

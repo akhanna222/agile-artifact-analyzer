@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.env
+
+# Keep seeds/ tracked (PDFs + SQL seed data)
+!seeds/
+!seeds/**

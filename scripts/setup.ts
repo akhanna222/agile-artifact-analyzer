@@ -5,7 +5,7 @@
  * This will:
  * 1. Create all database tables (schema)
  * 2. Create the admin user (admin@mastercard.com / admin123)
- * 3. Process all reference PDF documents for RAG
+ * 3. Load reference documents from SQL seed (fast) or re-process PDFs
  */
 
 import { execSync } from "child_process";
@@ -67,42 +67,76 @@ async function run() {
     console.log(`✓ Admin created: ${adminEmail} / ${adminPassword}\n`);
   }
 
-  // Step 3: Process reference documents
-  console.log("Step 3/3: Processing reference PDF documents for RAG...");
-  const attachedAssetsDir = path.join(process.cwd(), "attached_assets");
-  const pdfFiles = fs.existsSync(attachedAssetsDir)
-    ? fs.readdirSync(attachedAssetsDir).filter(f => f.endsWith(".pdf"))
-    : [];
+  // Step 3: Load reference documents
+  console.log("Step 3/3: Loading reference documents...");
 
-  if (pdfFiles.length === 0) {
-    console.log("⚠ No PDF files found in attached_assets/. Skipping document processing.");
-    console.log("  To process documents later, log in as admin and use the Reference Docs panel.\n");
+  const sqlSeedPath = path.join(process.cwd(), "seeds", "reference_documents.sql");
+  const seedsPdfsDir = path.join(process.cwd(), "seeds", "pdfs");
+  const attachedAssetsDir = path.join(process.cwd(), "attached_assets");
+
+  // Check if documents already exist
+  const pg = _require("pg");
+  const pgClient = new pg.Client(process.env.DATABASE_URL);
+  await pgClient.connect();
+  const countResult = await pgClient.query("SELECT COUNT(*) FROM reference_documents");
+  const existingCount = parseInt(countResult.rows[0].count);
+  await pgClient.end();
+
+  if (existingCount > 0) {
+    console.log(`✓ Reference documents already loaded (${existingCount} chunks) — skipping\n`);
+  } else if (fs.existsSync(sqlSeedPath)) {
+    // Fast path: load from SQL seed file
+    console.log("  Loading from SQL seed file (fast)...");
+    const pg2 = _require("pg");
+    const client = new pg2.Client(process.env.DATABASE_URL);
+    await client.connect();
+    const sql = fs.readFileSync(sqlSeedPath, "utf-8");
+    await client.query(sql);
+    await client.end();
+    console.log("✓ Reference documents loaded from seed file (312 chunks)\n");
   } else {
-    const { processAllDocuments } = await import("../server/pdf-processor.js");
-    const result = await processAllDocuments();
-    for (const r of result.results) {
-      if (r.status === "success") {
-        console.log(`  ✓ ${r.docName}: ${r.pageCount} chunks`);
-      } else {
-        console.log(`  ✗ ${r.docName}: ${r.status}`);
+    // Slow path: process PDFs
+    const pdfDir = fs.existsSync(seedsPdfsDir) ? seedsPdfsDir : attachedAssetsDir;
+    const pdfFiles = fs.existsSync(pdfDir)
+      ? fs.readdirSync(pdfDir).filter(f => f.endsWith(".pdf"))
+      : [];
+
+    if (pdfFiles.length === 0) {
+      console.log("⚠ No PDF seed file and no PDFs found.");
+      console.log("  Upload documents via admin panel → Reference Docs tab after startup.\n");
+    } else {
+      console.log(`  Processing ${pdfFiles.length} PDFs from ${pdfDir}...`);
+
+      // Copy PDFs to attached_assets if they're in seeds/pdfs
+      if (pdfDir === seedsPdfsDir) {
+        if (!fs.existsSync(attachedAssetsDir)) fs.mkdirSync(attachedAssetsDir, { recursive: true });
+        for (const pdf of pdfFiles) {
+          fs.copyFileSync(path.join(seedsPdfsDir, pdf), path.join(attachedAssetsDir, pdf));
+        }
       }
+
+      const { processAllDocuments } = await import("../server/pdf-processor.js");
+      const result = await processAllDocuments();
+      for (const r of result.results) {
+        if (r.status === "success") {
+          console.log(`  ✓ ${r.docName}: ${r.pageCount} chunks`);
+        } else {
+          console.log(`  ✗ ${r.docName}: ${r.status}`);
+        }
+      }
+      console.log();
     }
-    console.log();
   }
 
   console.log("========================================");
   console.log("  Setup complete!");
   console.log("========================================");
-  console.log("\nYou can now start the app:");
+  console.log("\nStart the app:");
   console.log("  Development:  npm run dev");
   console.log("  Production:   npm run build && npm start");
   console.log("\nLogin credentials:");
   console.log("  Email:    admin@mastercard.com");
-  console.log("  Password: admin123");
-  console.log("\nEnvironment variables required:");
-  console.log("  DATABASE_URL   - PostgreSQL connection string");
-  console.log("  SESSION_SECRET - Random secret for sessions");
-  console.log("  OPENAI_API_KEY - Your OpenAI API key (if not on Replit)\n");
+  console.log("  Password: admin123\n");
 
   process.exit(0);
 }

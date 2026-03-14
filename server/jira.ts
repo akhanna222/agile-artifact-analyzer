@@ -86,7 +86,22 @@ export class JiraClient {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Jira API error ${response.status}: ${body}`);
+      if (response.status === 401) {
+        throw new Error(
+          "Authentication failed (401). Check that your email and API token are correct. " +
+          "The API token must be generated at https://id.atlassian.com/manage-profile/security/api-tokens " +
+          "(NOT from Jira settings). Make sure you copied the full token with no extra spaces."
+        );
+      }
+      if (response.status === 403) {
+        throw new Error("Permission denied (403). Your Jira account may not have access to this resource.");
+      }
+      if (response.status === 404) {
+        throw new Error("Resource not found (404). Check that your Base URL is correct, e.g. https://yourcompany.atlassian.net");
+      }
+      let detail = body;
+      try { detail = JSON.parse(body)?.errorMessages?.join(", ") || JSON.parse(body)?.message || body; } catch {}
+      throw new Error(`Jira API error ${response.status}: ${detail}`);
     }
 
     if (response.status === 204) return {} as T;

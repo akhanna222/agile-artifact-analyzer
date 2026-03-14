@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema, analysisResultSchema, type AnalysisResult } from "@shared/schema";
 import OpenAI from "openai";
-import { getJiraClient, saveJiraConnection, deleteJiraConnection, getJiraConnection } from "./jira";
+import { JiraClient, getJiraClient, saveJiraConnection, deleteJiraConnection, getJiraConnection } from "./jira";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -428,10 +428,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "baseUrl, email, and apiToken are required" });
       }
       const userId = req.session?.userId!;
+      // Test credentials BEFORE saving — construct a temporary client from provided values
+      const tempClient = new JiraClient({
+        id: 0, userId,
+        baseUrl: baseUrl.trim(),
+        email: email.trim(),
+        apiToken: apiToken.trim(),
+        projectKey: projectKey?.trim() || null,
+      } as any);
+      const result = await tempClient.testConnection();
+      // Only save after successful test
       await saveJiraConnection(userId, baseUrl.trim(), email.trim(), apiToken.trim(), projectKey?.trim());
-      const client = await getJiraClient(userId);
-      if (!client) return res.status(500).json({ error: "Failed to create client" });
-      const result = await client.testConnection();
       res.json({ success: true, ...result });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to connect to Jira" });

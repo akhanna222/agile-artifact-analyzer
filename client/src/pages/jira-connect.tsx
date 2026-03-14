@@ -100,6 +100,7 @@ export default function JiraConnect() {
   const [searchResults, setSearchResults] = useState<JiraIssue[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("connect");
+  const [authError, setAuthError] = useState(false);
 
   const { data: user } = useQuery<AuthUser | null>({ queryKey: ["/api/auth/me"] });
 
@@ -116,13 +117,16 @@ export default function JiraConnect() {
     mutationFn: async () =>
       apiRequest("POST", "/api/jira/connect", { baseUrl, email, apiToken, projectKey }),
     onSuccess: (data: any) => {
+      setAuthError(false);
       queryClient.invalidateQueries({ queryKey: ["/api/jira/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jira/issues"] });
       toast({ title: "Connected to Jira", description: `Logged in as ${data.user}` });
       setActiveTab("browse");
     },
     onError: (err: any) => {
-      toast({ title: "Connection Failed", description: err.message || "Check your credentials.", variant: "destructive" });
+      const is401 = err.message?.includes("401") || err.message?.includes("Authentication failed");
+      setAuthError(is401);
+      toast({ title: "Connection Failed", description: is401 ? "Authentication failed — see troubleshooting tips below." : (err.message || "Check your credentials."), variant: "destructive" });
     },
   });
 
@@ -286,6 +290,21 @@ export default function JiraConnect() {
                       value={projectKey} onChange={e => setProjectKey(e.target.value)} data-testid="input-jira-project" />
                   </div>
                 </div>
+
+                {authError && (
+                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-lg p-4 text-sm space-y-2">
+                    <p className="font-semibold text-red-800 dark:text-red-300 flex items-center gap-1.5">
+                      <XCircle className="w-4 h-4" /> Authentication Failed — Common Fixes:
+                    </p>
+                    <ul className="text-red-700 dark:text-red-400 space-y-1 text-xs list-disc list-inside">
+                      <li><strong>Wrong API token source:</strong> The token must come from <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline">id.atlassian.com → Security → API tokens</a> — NOT from Jira's profile settings.</li>
+                      <li><strong>Wrong email:</strong> Use the email you log in to Atlassian with (check at id.atlassian.com).</li>
+                      <li><strong>Wrong base URL:</strong> Must be exactly <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">https://yourcompany.atlassian.net</code> — no trailing slash, no path.</li>
+                      <li><strong>Copied token incorrectly:</strong> Regenerate the API token and paste it fresh — avoid spaces or line breaks.</li>
+                      <li><strong>SSO-managed account:</strong> If your org uses SSO, API tokens must still be generated at id.atlassian.com — they work independently of SSO.</li>
+                    </ul>
+                  </div>
+                )}
 
                 <Button
                   onClick={() => connectMutation.mutate()}

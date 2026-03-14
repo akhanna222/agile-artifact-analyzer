@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema, analysisResultSchema, type AnalysisResult } from "@shared/schema";
 import OpenAI from "openai";
+import { getJiraClient, saveJiraConnection, deleteJiraConnection, getJiraConnection } from "./jira";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -397,6 +398,129 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting analysis:", error);
       res.status(500).json({ error: "Failed to delete analysis" });
+    }
+  });
+
+  // ─── Jira Integration Routes ──────────────────────────────────────────────
+
+  // GET /api/jira/status — check if current user has a Jira connection
+  app.get("/api/jira/status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const conn = await getJiraConnection(userId);
+      if (!conn) return res.json({ connected: false });
+      res.json({
+        connected: true,
+        baseUrl: conn.baseUrl,
+        email: conn.email,
+        projectKey: conn.projectKey,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check Jira status" });
+    }
+  });
+
+  // POST /api/jira/connect — save Jira credentials and verify connection
+  app.post("/api/jira/connect", requireAuth, async (req, res) => {
+    try {
+      const { baseUrl, email, apiToken, projectKey } = req.body;
+      if (!baseUrl || !email || !apiToken) {
+        return res.status(400).json({ error: "baseUrl, email, and apiToken are required" });
+      }
+      const userId = req.session?.userId!;
+      await saveJiraConnection(userId, baseUrl.trim(), email.trim(), apiToken.trim(), projectKey?.trim());
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(500).json({ error: "Failed to create client" });
+      const result = await client.testConnection();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to connect to Jira" });
+    }
+  });
+
+  // DELETE /api/jira/connect — remove Jira connection for current user
+  app.delete("/api/jira/connect", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      await deleteJiraConnection(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to disconnect Jira" });
+    }
+  });
+
+  // GET /api/jira/test — test existing connection
+  app.get("/api/jira/test", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found" });
+      const result = await client.testConnection();
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Connection test failed" });
+    }
+  });
+
+  // GET /api/jira/issues — list issues from the connected project
+  app.get("/api/jira/issues", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
+      const maxResults = parseInt(req.query.maxResults as string) || 50;
+      const result = await client.getProjectIssues(maxResults);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to fetch issues" });
+    }
+  });
+
+  // GET /api/jira/search?q=... — search Jira issues
+  app.get("/api/jira/search", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const query = req.query.q as string;
+      if (!query) return res.status(400).json({ error: "Query parameter 'q' is required" });
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
+      const result = await client.searchIssues(query);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Search failed" });
+    }
+  });
+
+  // GET /api/jira/issue/:key — get a single Jira issue
+  app.get("/api/jira/issue/:key", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
+      const issue = await client.getIssue(req.params.key);
+      res.json(issue);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to fetch issue" });
+    }
+  });
+
+  // POST /api/jira/issue/:key/writeback — write analysis results back to Jira as a comment + label
+  app.post("/api/jira/issue/:key/writeback", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
+      const { score, summary, categories, addLabel } = req.body;
+      if (typeof score !== "number" || !summary) {
+        return res.status(400).json({ error: "score and summary are required" });
+      }
+      await client.addComment(req.params.key, score, summary, categories || []);
+      if (addLabel) {
+        await client.updateIssueLabel(req.params.key, score);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Write-back failed" });
     }
   });
 

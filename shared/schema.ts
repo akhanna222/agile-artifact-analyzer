@@ -80,6 +80,18 @@ export const insertReferenceDocSchema = createInsertSchema(referenceDocuments).o
 export type ReferenceDocument = typeof referenceDocuments.$inferSelect;
 export type InsertReferenceDoc = z.infer<typeof insertReferenceDocSchema>;
 
+export const jiraConnections = pgTable("jira_connections", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique(),
+  baseUrl: text("base_url").notNull(),
+  email: text("email").notNull(),
+  apiToken: text("api_token").notNull(),
+  projectKey: text("project_key"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type JiraConnection = typeof jiraConnections.$inferSelect;
+
 export const analysisResultSchema = z.object({
   overallScore: z.number().min(0).max(100),
   summary: z.string(),

@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -23,9 +28,15 @@ import {
   ListChecks,
   Zap,
   BookOpen,
+  Send,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisResultsProps {
   analysis: Analysis;
@@ -135,6 +146,35 @@ function CategoryScoreBar({ score }: { score: number }) {
 
 export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsProps) {
   const [copiedImproved, setCopiedImproved] = useState(false);
+  const [jiraDialogOpen, setJiraDialogOpen] = useState(false);
+  const [jiraKey, setJiraKey] = useState("");
+  const [addLabel, setAddLabel] = useState(true);
+  const { toast } = useToast();
+
+  const { data: jiraStatus } = useQuery<{ connected: boolean; baseUrl?: string }>({
+    queryKey: ["/api/jira/status"],
+  });
+
+  const writebackMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest("POST", `/api/jira/issue/${jiraKey.trim()}/writeback`, {
+        score: results.overallScore,
+        summary: results.summary,
+        categories: results.categories,
+        addLabel,
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Written to Jira",
+        description: `Analysis results posted to ${jiraKey.toUpperCase()} as a comment.`,
+      });
+      setJiraDialogOpen(false);
+      setJiraKey("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Write-back Failed", description: err.message || "Could not write to Jira.", variant: "destructive" });
+    },
+  });
 
   const handleCopyImproved = () => {
     if (results.improvedVersion) {
@@ -164,13 +204,82 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
           New Analysis
         </Button>
         <Separator orientation="vertical" className="h-5 hidden sm:block" />
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap flex-1">
           <Badge variant="secondary" data-testid="badge-type">
             {typeLabels[analysis.type] || analysis.type}
           </Badge>
           <h2 className="text-lg font-semibold" data-testid="text-analysis-title">{analysis.title}</h2>
         </div>
+        {jiraStatus?.connected && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setJiraDialogOpen(true)}
+            className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 shrink-0"
+            data-testid="btn-write-to-jira"
+          >
+            <Send className="w-3.5 h-3.5 mr-1.5" />
+            Write to Jira
+          </Button>
+        )}
       </div>
+
+      {/* Jira Write-back Dialog */}
+      <Dialog open={jiraDialogOpen} onOpenChange={setJiraDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-blue-600" /> Write Analysis to Jira
+            </DialogTitle>
+            <DialogDescription>
+              This will post the analysis results (score: <strong>{results.overallScore}/100</strong>) as a comment on the specified Jira issue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="jira-issue-key">Jira Issue Key</Label>
+              <Input
+                id="jira-issue-key"
+                placeholder="e.g. PROJ-123, AAA-456"
+                value={jiraKey}
+                onChange={e => setJiraKey(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && jiraKey.trim() && writebackMutation.mutate()}
+                data-testid="input-jira-issue-key"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={addLabel}
+                onChange={e => setAddLabel(e.target.checked)}
+                className="rounded"
+                data-testid="checkbox-add-label"
+              />
+              Add quality label ({results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"})
+            </label>
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-xs space-y-1">
+              <p className="font-medium text-gray-700 dark:text-gray-300">What will be posted:</p>
+              <p className="text-gray-500">• Overall score: {results.overallScore}/100</p>
+              <p className="text-gray-500">• AI summary paragraph</p>
+              <p className="text-gray-500">• Category breakdown ({results.categories?.length || 0} categories)</p>
+              {addLabel && <p className="text-gray-500">• Label: {results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"}</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJiraDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => writebackMutation.mutate()}
+              disabled={!jiraKey.trim() || writebackMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="btn-confirm-write-jira"
+            >
+              {writebackMutation.isPending
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Posting...</>
+                : <><Send className="w-4 h-4 mr-2" /> Post to Jira</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="md:col-span-1">

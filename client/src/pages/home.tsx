@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { AnalysisHistory } from "@/components/analysis-history";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, History, ChevronLeft, LogOut, Shield, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 
 interface AuthUser {
   id: number;
@@ -20,8 +20,24 @@ interface AuthUser {
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const searchStr = useSearch();
   const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [importedValues, setImportedValues] = useState<{ title?: string; type?: string; content?: string } | undefined>();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchStr);
+    const importParam = params.get("import");
+    if (importParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(importParam));
+        setImportedValues(parsed);
+        setSelectedAnalysis(null);
+        setShowHistory(false);
+        window.history.replaceState(null, "", "/");
+      } catch {}
+    }
+  }, [searchStr]);
 
   const { data: user } = useQuery<AuthUser | null>({
     queryKey: ["/api/auth/me"],
@@ -273,6 +289,7 @@ export default function Home() {
                   <AnalysisForm
                     onSubmit={(data) => analyzeMutation.mutate(data)}
                     isLoading={analyzeMutation.isPending}
+                    initialValues={importedValues}
                   />
                 </motion.div>
               )}

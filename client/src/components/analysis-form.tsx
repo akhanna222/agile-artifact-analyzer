@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ type FormData = z.infer<typeof formSchema>;
 interface AnalysisFormProps {
   onSubmit: (data: FormData) => void;
   isLoading: boolean;
+  initialValues?: { title?: string; type?: string; content?: string };
 }
 
 const typeInfo = {
@@ -109,15 +111,23 @@ Technical Details:
   },
 };
 
-export function AnalysisForm({ onSubmit, isLoading }: AnalysisFormProps) {
+export function AnalysisForm({ onSubmit, isLoading, initialValues }: AnalysisFormProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      type: "story",
-      content: "",
+      title: initialValues?.title || "",
+      type: (initialValues?.type as FormData["type"]) || "story",
+      content: initialValues?.content || "",
     },
   });
+
+  useEffect(() => {
+    if (initialValues) {
+      if (initialValues.title) form.setValue("title", initialValues.title);
+      if (initialValues.type) form.setValue("type", initialValues.type as FormData["type"]);
+      if (initialValues.content) form.setValue("content", initialValues.content);
+    }
+  }, [initialValues]);
 
   const selectedType = form.watch("type") as keyof typeof typeInfo;
   const info = typeInfo[selectedType];

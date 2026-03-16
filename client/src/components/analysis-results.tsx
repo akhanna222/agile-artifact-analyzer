@@ -242,7 +242,8 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
               <Send className="w-4 h-4 text-blue-600" /> Write Analysis to Jira
             </DialogTitle>
             <DialogDescription>
-              This will post the analysis results (score: <strong>{results.overallScore}/100</strong>) as a comment on the specified Jira issue.
+              Posts a full quality report as a comment on the Jira issue — score, per-category findings &amp; suggestions
+              {results.improvedVersion ? ", and the improved version" : ""}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -288,12 +289,13 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
               </label>
             )}
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-xs space-y-1">
-              <p className="font-medium text-gray-700 dark:text-gray-300">What will be posted:</p>
-              <p className="text-gray-500">• Overall score: {results.overallScore}/100</p>
-              <p className="text-gray-500">• AI summary paragraph</p>
-              <p className="text-gray-500">• Category breakdown ({results.categories?.length || 0} categories)</p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">Comment will include:</p>
+              <p className="text-gray-500">• Overall score: {results.overallScore}/100 ({results.overallScore >= 75 ? "High Quality" : results.overallScore >= 50 ? "Needs Improvement" : "Low Quality"})</p>
+              <p className="text-gray-500">• AI summary</p>
+              <p className="text-gray-500">• {results.categories?.length || 0} categories with findings &amp; suggestions</p>
+              {results.improvedVersion && <p className="text-green-600 dark:text-green-400">• Full improved version text</p>}
               {addLabel && <p className="text-gray-500">• Label: {results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"}</p>}
-              {updateDescription && <p className="text-orange-600 dark:text-orange-400">• Description replaced with improved version</p>}
+              {updateDescription && <p className="text-orange-600 dark:text-orange-400">• Description also replaced with improved version</p>}
             </div>
           </div>
           <DialogFooter>

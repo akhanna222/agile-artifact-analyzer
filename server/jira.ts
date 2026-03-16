@@ -210,33 +210,118 @@ export class JiraClient {
     };
   }
 
-  async addComment(issueKey: string, score: number, summary: string, categories: any[]): Promise<void> {
+  async addComment(issueKey: string, score: number, summary: string, categories: any[], improvedVersion?: string): Promise<void> {
     const scoreEmoji = score >= 75 ? "✅" : score >= 50 ? "⚠️" : "❌";
+    const scoreLabel = score >= 75 ? "High Quality" : score >= 50 ? "Needs Improvement" : "Low Quality";
 
     if (this.jiraType === "datacenter") {
       // Data Center API v2: plain text / wiki markup comment
       const categoryLines = categories.map(c => {
         const icon = c.status === "pass" ? "✅" : c.status === "warning" ? "⚠️" : "❌";
-        return `  ${icon} ${c.name}: ${c.score}/100`;
-      }).join("\n");
-      const plainText = [
-        `${scoreEmoji} Agile Quality Analysis — Score: ${score}/100`,
+        const lines = [`  ${icon} *${c.name}* — ${c.score}/100`];
+        if (c.findings?.length) {
+          lines.push("    Findings:");
+          c.findings.forEach((f: string) => lines.push(`      - ${f}`));
+        }
+        if (c.suggestions?.length) {
+          lines.push("    Suggestions:");
+          c.suggestions.forEach((s: string) => lines.push(`      - ${s}`));
+        }
+        return lines.join("\n");
+      }).join("\n\n");
+
+      const sections = [
+        `${scoreEmoji} Agile Quality Analysis — Score: ${score}/100 (${scoreLabel})`,
         "",
         summary,
         "",
-        "Category Breakdown:",
+        "━━━ Category Breakdown ━━━",
         categoryLines,
-        "",
-        `Analyzed by Agile Artifact Analyzer on ${new Date().toLocaleDateString()}`,
-      ].join("\n");
+      ];
+
+      if (improvedVersion) {
+        sections.push("");
+        sections.push("━━━ Improved Version ━━━");
+        sections.push(improvedVersion);
+      }
+
+      sections.push("");
+      sections.push(`Analyzed by Agile Artifact Analyzer on ${new Date().toLocaleDateString()}`);
+
       await this.request(`/issue/${issueKey}/comment`, {
         method: "POST",
-        body: JSON.stringify({ body: plainText }),
+        body: JSON.stringify({ body: sections.join("\n") }),
       });
       return;
     }
 
     // Cloud API v3: Atlassian Document Format (ADF)
+    const categoryNodes: any[] = [];
+    categories.forEach(c => {
+      const statusIcon = c.status === "pass" ? "✅" : c.status === "warning" ? "⚠️" : "❌";
+      // Category header row
+      categoryNodes.push({
+        type: "paragraph",
+        content: [
+          { type: "text", text: `${statusIcon} `, },
+          { type: "text", text: `${c.name}`, marks: [{ type: "strong" }] },
+          { type: "text", text: ` — ${c.score}/100` },
+        ],
+      });
+      // Findings
+      if (c.findings?.length) {
+        categoryNodes.push({
+          type: "paragraph",
+          content: [{ type: "text", text: "Findings:", marks: [{ type: "em" }] }],
+        });
+        categoryNodes.push({
+          type: "bulletList",
+          content: c.findings.map((f: string) => ({
+            type: "listItem",
+            content: [{ type: "paragraph", content: [{ type: "text", text: f }] }],
+          })),
+        });
+      }
+      // Suggestions
+      if (c.suggestions?.length) {
+        categoryNodes.push({
+          type: "paragraph",
+          content: [{ type: "text", text: "Suggestions:", marks: [{ type: "em" }] }],
+        });
+        categoryNodes.push({
+          type: "bulletList",
+          content: c.suggestions.map((s: string) => ({
+            type: "listItem",
+            content: [{ type: "paragraph", content: [{ type: "text", text: s }] }],
+          })),
+        });
+      }
+      // Spacer between categories
+      categoryNodes.push({ type: "rule" });
+    });
+
+    // Build improved version nodes if provided
+    const improvedNodes: any[] = [];
+    if (improvedVersion) {
+      improvedNodes.push({
+        type: "heading",
+        attrs: { level: 4 },
+        content: [{ type: "text", text: "Improved Version" }],
+      });
+      const paragraphs = improvedVersion.split(/\n{2,}/);
+      paragraphs.forEach(para => {
+        const lines = para.split("\n");
+        const content: any[] = [];
+        lines.forEach((line, i) => {
+          if (line) content.push({ type: "text", text: line });
+          if (i < lines.length - 1 && line) content.push({ type: "hardBreak" });
+        });
+        if (content.length) {
+          improvedNodes.push({ type: "paragraph", content });
+        }
+      });
+    }
+
     const commentBody = {
       type: "doc",
       version: 1,
@@ -244,7 +329,7 @@ export class JiraClient {
         {
           type: "heading",
           attrs: { level: 3 },
-          content: [{ type: "text", text: `${scoreEmoji} Agile Quality Analysis — Score: ${score}/100` }],
+          content: [{ type: "text", text: `${scoreEmoji} Agile Quality Analysis — Score: ${score}/100 (${scoreLabel})` }],
         },
         {
           type: "paragraph",
@@ -255,19 +340,8 @@ export class JiraClient {
           attrs: { level: 4 },
           content: [{ type: "text", text: "Category Breakdown" }],
         },
-        {
-          type: "bulletList",
-          content: categories.map(c => {
-            const statusIcon = c.status === "pass" ? "✅" : c.status === "warning" ? "⚠️" : "❌";
-            return {
-              type: "listItem",
-              content: [{
-                type: "paragraph",
-                content: [{ type: "text", text: `${statusIcon} ${c.name}: ${c.score}/100` }],
-              }],
-            };
-          }),
-        },
+        ...categoryNodes,
+        ...improvedNodes,
         {
           type: "paragraph",
           content: [

@@ -545,7 +545,7 @@ export async function registerRoutes(
       if (typeof score !== "number" || !summary) {
         return res.status(400).json({ error: "score and summary are required" });
       }
-      await client.addComment(req.params.key, score, summary, categories || []);
+      await client.addComment(req.params.key, score, summary, categories || [], improvedVersion || undefined);
       if (addLabel) {
         await client.updateIssueLabel(req.params.key, score);
       }

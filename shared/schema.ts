@@ -84,9 +84,10 @@ export const jiraConnections = pgTable("jira_connections", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().unique(),
   baseUrl: text("base_url").notNull(),
-  email: text("email").notNull(),
+  email: text("email").notNull().default(""),
   apiToken: text("api_token").notNull(),
   projectKey: text("project_key"),
+  jiraType: text("jira_type").notNull().default("cloud"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

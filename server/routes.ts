@@ -415,6 +415,7 @@ export async function registerRoutes(
         email: conn.email,
         apiToken: conn.apiToken,
         projectKey: conn.projectKey,
+        jiraType: conn.jiraType || "cloud",
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check Jira status" });
@@ -424,22 +425,27 @@ export async function registerRoutes(
   // POST /api/jira/connect — save Jira credentials and verify connection
   app.post("/api/jira/connect", requireAuth, async (req, res) => {
     try {
-      const { baseUrl, email, apiToken, projectKey } = req.body;
-      if (!baseUrl || !email || !apiToken) {
-        return res.status(400).json({ error: "baseUrl, email, and apiToken are required" });
+      const { baseUrl, email, apiToken, projectKey, jiraType } = req.body;
+      const type = jiraType || "cloud";
+      if (!baseUrl || !apiToken) {
+        return res.status(400).json({ error: "baseUrl and apiToken are required" });
+      }
+      if (type === "cloud" && !email) {
+        return res.status(400).json({ error: "email is required for Jira Cloud" });
       }
       const userId = req.session?.userId!;
       // Test credentials BEFORE saving — construct a temporary client from provided values
       const tempClient = new JiraClient({
         id: 0, userId,
         baseUrl: baseUrl.trim(),
-        email: email.trim(),
+        email: (email || "").trim(),
         apiToken: apiToken.trim(),
         projectKey: projectKey?.trim() || null,
+        jiraType: type,
       } as any);
       const result = await tempClient.testConnection();
       // Only save after successful test
-      await saveJiraConnection(userId, baseUrl.trim(), email.trim(), apiToken.trim(), projectKey?.trim());
+      await saveJiraConnection(userId, baseUrl.trim(), (email || "").trim(), apiToken.trim(), projectKey?.trim(), type);
       res.json({ success: true, ...result });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to connect to Jira" });

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 interface AuthUser { id: number; email: string; isAdmin: boolean; }
-interface JiraStatus { connected: boolean; baseUrl?: string; email?: string; apiToken?: string; projectKey?: string; }
+interface JiraStatus { connected: boolean; baseUrl?: string; email?: string; apiToken?: string; projectKey?: string; jiraType?: string; }
 interface JiraIssue {
   key: string; summary: string; description: string; issueType: string;
   status: string; assignee: string | null; priority: string | null;
@@ -245,6 +245,7 @@ function IssueList({ issues, onImport }: { issues: JiraIssue[]; onImport: (i: Ji
 export default function JiraConnect() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [jiraType, setJiraType] = useState<"cloud" | "datacenter">("cloud");
   const [baseUrl, setBaseUrl] = useState("");
   const [email, setEmail] = useState("");
   const [apiToken, setApiToken] = useState("");
@@ -264,6 +265,7 @@ export default function JiraConnect() {
   // Pre-fill form fields from saved connection whenever status loads
   useEffect(() => {
     if (jiraStatus?.connected) {
+      if (jiraStatus.jiraType) setJiraType(jiraStatus.jiraType as "cloud" | "datacenter");
       if (jiraStatus.baseUrl) setBaseUrl(jiraStatus.baseUrl);
       if (jiraStatus.email) setEmail(jiraStatus.email);
       if (jiraStatus.apiToken) setApiToken(jiraStatus.apiToken);
@@ -285,7 +287,7 @@ export default function JiraConnect() {
 
   const connectMutation = useMutation({
     mutationFn: async () =>
-      apiRequest("POST", "/api/jira/connect", { baseUrl, email, apiToken, projectKey }),
+      apiRequest("POST", "/api/jira/connect", { baseUrl, email, apiToken, projectKey, jiraType }),
     onSuccess: (data: any) => {
       setAuthError(false);
       queryClient.invalidateQueries({ queryKey: ["/api/jira/status"] });
@@ -434,30 +436,80 @@ export default function JiraConnect() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-lg p-4 text-sm space-y-1">
-                  <p className="font-semibold text-blue-800 dark:text-blue-200">How to get your API token:</p>
-                  <ol className="list-decimal list-inside text-blue-700 dark:text-blue-300 space-y-0.5">
-                    <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline font-medium">id.atlassian.com → Security → API tokens</a></li>
-                    <li>Click <strong>"Create API token"</strong>, give it a label</li>
-                    <li>Copy the generated token and paste it below</li>
-                  </ol>
+
+                {/* Jira Type Selector */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Jira Deployment Type</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setJiraType("cloud")}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${jiraType === "cloud" ? "border-[hsl(22,100%,50%)] bg-orange-50 dark:bg-orange-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}
+                      data-testid="btn-type-cloud"
+                    >
+                      <p className="font-semibold text-sm">☁️ Jira Cloud</p>
+                      <p className="text-xs text-gray-500 mt-0.5">atlassian.net — login with email + API token</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJiraType("datacenter")}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${jiraType === "datacenter" ? "border-[hsl(22,100%,50%)] bg-orange-50 dark:bg-orange-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}
+                      data-testid="btn-type-datacenter"
+                    >
+                      <p className="font-semibold text-sm">🏢 Data Center / Server</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Self-hosted — login with Personal Access Token</p>
+                    </button>
+                  </div>
                 </div>
+
+                {/* How-to guidance based on type */}
+                {jiraType === "cloud" ? (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-lg p-4 text-sm space-y-1">
+                    <p className="font-semibold text-blue-800 dark:text-blue-200">How to get your Cloud API token:</p>
+                    <ol className="list-decimal list-inside text-blue-700 dark:text-blue-300 space-y-0.5">
+                      <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline font-medium">id.atlassian.com → Security → API tokens</a></li>
+                      <li>Click <strong>"Create API token"</strong>, give it a label, and copy it</li>
+                      <li>Your email is the one you use to log in at <strong>id.atlassian.com</strong></li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg p-4 text-sm space-y-1">
+                    <p className="font-semibold text-amber-800 dark:text-amber-200">How to get your Data Center PAT:</p>
+                    <ol className="list-decimal list-inside text-amber-700 dark:text-amber-300 space-y-0.5">
+                      <li>Log into your Jira Server/Data Center</li>
+                      <li>Click your <strong>profile avatar</strong> → <strong>Profile</strong></li>
+                      <li>Go to <strong>Personal Access Tokens</strong> → <strong>Create token</strong></li>
+                      <li>Copy the token and paste it below — no email needed</li>
+                    </ol>
+                    <p className="text-amber-600 dark:text-amber-400 text-xs mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> <strong>Note:</strong> Tokens from id.atlassian.com will NOT work for Data Center.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid gap-4">
                   <div>
                     <Label htmlFor="jira-url">Jira Base URL <span className="text-red-500">*</span></Label>
-                    <Input id="jira-url" placeholder="https://yourcompany.atlassian.net"
+                    <Input id="jira-url"
+                      placeholder={jiraType === "cloud" ? "https://yourcompany.atlassian.net" : "https://jira.yourcompany.com"}
                       value={baseUrl} onChange={e => setBaseUrl(e.target.value)} data-testid="input-jira-url" />
-                    <p className="text-xs text-gray-400 mt-1">Your Atlassian cloud instance URL — no trailing slash</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {jiraType === "cloud" ? "Your Atlassian cloud URL — no trailing slash" : "Your self-hosted Jira URL — e.g. https://jira.yourcompany.com"}
+                    </p>
                   </div>
+                  {jiraType === "cloud" && (
+                    <div>
+                      <Label htmlFor="jira-email">Atlassian Account Email <span className="text-red-500">*</span></Label>
+                      <Input id="jira-email" type="email" placeholder="you@company.com"
+                        value={email} onChange={e => setEmail(e.target.value)} data-testid="input-jira-email" />
+                    </div>
+                  )}
                   <div>
-                    <Label htmlFor="jira-email">Atlassian Account Email <span className="text-red-500">*</span></Label>
-                    <Input id="jira-email" type="email" placeholder="you@company.com"
-                      value={email} onChange={e => setEmail(e.target.value)} data-testid="input-jira-email" />
-                  </div>
-                  <div>
-                    <Label htmlFor="jira-token">API Token <span className="text-red-500">*</span></Label>
-                    <Input id="jira-token" type="password" placeholder="Paste your Jira API token here"
+                    <Label htmlFor="jira-token">
+                      {jiraType === "cloud" ? "API Token" : "Personal Access Token (PAT)"} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input id="jira-token" type="password"
+                      placeholder={jiraType === "cloud" ? "Paste your Jira Cloud API token" : "Paste your Jira PAT (from Jira profile)"}
                       value={apiToken} onChange={e => setApiToken(e.target.value)} data-testid="input-jira-token" />
                     {jiraStatus?.connected && apiToken && (
                       <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
@@ -479,18 +531,27 @@ export default function JiraConnect() {
                     <p className="font-semibold text-red-800 dark:text-red-300 flex items-center gap-1.5">
                       <XCircle className="w-4 h-4" /> Authentication Failed — Common Fixes:
                     </p>
-                    <ul className="text-red-700 dark:text-red-400 space-y-1 text-xs list-disc list-inside">
-                      <li><strong>Wrong API token source:</strong> Must come from <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline">id.atlassian.com → Security → API tokens</a> — NOT from Jira's profile settings.</li>
-                      <li><strong>Wrong email:</strong> Use the email you log into Atlassian with.</li>
-                      <li><strong>Wrong base URL:</strong> Must be exactly <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">https://yourcompany.atlassian.net</code>.</li>
-                      <li><strong>Token copied incorrectly:</strong> Regenerate the token and paste it fresh.</li>
-                    </ul>
+                    {jiraType === "datacenter" ? (
+                      <ul className="text-red-700 dark:text-red-400 space-y-1 text-xs list-disc list-inside">
+                        <li><strong>Wrong token type:</strong> You need a <strong>Personal Access Token</strong> from Jira's own profile page — NOT from id.atlassian.com.</li>
+                        <li><strong>Token from id.atlassian.com won't work</strong> for Data Center/Server installations.</li>
+                        <li><strong>Network access:</strong> If your Jira is behind a corporate firewall, this cloud-hosted app may not be able to reach it.</li>
+                        <li><strong>Wrong base URL:</strong> Use your company's Jira URL, e.g. <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">https://jira.yourcompany.com</code>.</li>
+                      </ul>
+                    ) : (
+                      <ul className="text-red-700 dark:text-red-400 space-y-1 text-xs list-disc list-inside">
+                        <li><strong>Wrong token source:</strong> Must come from <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline">id.atlassian.com → Security → API tokens</a>.</li>
+                        <li><strong>Wrong email:</strong> Use the email you log into Atlassian Cloud with.</li>
+                        <li><strong>Wrong base URL:</strong> Must be exactly <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">https://yourcompany.atlassian.net</code> — no trailing slash.</li>
+                        <li><strong>Using Data Center?</strong> Switch to the "Data Center / Server" option above.</li>
+                      </ul>
+                    )}
                   </div>
                 )}
 
                 <Button
                   onClick={() => connectMutation.mutate()}
-                  disabled={connectMutation.isPending || !baseUrl || !email || !apiToken}
+                  disabled={connectMutation.isPending || !baseUrl || (jiraType === "cloud" && !email) || !apiToken}
                   className="w-full bg-[hsl(22,100%,50%)] hover:bg-[hsl(22,100%,45%)] text-white"
                   data-testid="btn-connect-jira">
                   {connectMutation.isPending

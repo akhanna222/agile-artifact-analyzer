@@ -334,14 +334,14 @@ export async function registerRoutes(
         try {
           console.log(`[Analysis ${analysis.id}] Starting background processing...`);
           const { context: refContext, refs } = await getRelevantReferences(analysis.content, analysis.type);
-          console.log(`[Analysis ${analysis.id}] Got ${refs.length} references, calling OpenAI (gpt-4.1)...`);
+          console.log(`[Analysis ${analysis.id}] Got ${refs.length} references, calling OpenAI (o3)...`);
           const prompt = getAnalysisPrompt(analysis.type, analysis.content, refContext || undefined);
 
           // — Pass 1: Analysis + initial improved version —
           const controller1 = new AbortController();
-          const timeoutId1 = setTimeout(() => controller1.abort(), 65000);
+          const timeoutId1 = setTimeout(() => controller1.abort(), 120000);
           const response = await openai.chat.completions.create({
-            model: "gpt-4.1",
+            model: "o3",
             messages: [
               { role: "system", content: "You are a senior Agile Coach (CSP, SAFe SPC) who rigorously evaluates agile artifacts against Scrum, SAFe, and industry-standard methodologies. Ground every finding in the submitted text only — never fabricate context. You never inflate scores. Respond with valid JSON only, no markdown." },
               { role: "user", content: prompt },
@@ -407,9 +407,9 @@ export async function registerRoutes(
             try {
               console.log(`[Analysis ${analysis.id}] Pass 2 (judge refinement) starting...`);
               const controller2 = new AbortController();
-              const timeoutId2 = setTimeout(() => controller2.abort(), 65000);
+              const timeoutId2 = setTimeout(() => controller2.abort(), 120000);
               const judgeResponse = await openai.chat.completions.create({
-                model: "gpt-4.1",
+                model: "o3",
                 messages: [
                   { role: "system", content: "You are an expert SDLC quality judge. You refine agile artifact drafts to be SDLC-complete and immediately sprint-ready. You never invent context not present in the original. Return only the artifact text, no commentary." },
                   { role: "user", content: getJudgePrompt(analysis.type, analysis.content, initialImproved, allFindings) },
@@ -432,7 +432,7 @@ export async function registerRoutes(
             promptTokens: usage.prompt_tokens || 0,
             completionTokens: usage.completion_tokens || 0,
             totalTokens: usage.total_tokens || 0,
-            model: response.model || "gpt-4.1",
+            model: response.model || "o3",
           } : undefined;
 
           await storage.updateAnalysisResults(

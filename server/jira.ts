@@ -157,13 +157,19 @@ export class JiraClient {
     };
   }
 
+  private get searchEndpoint(): string {
+    // Atlassian Cloud REST API v3 deprecated /search in favour of /search/jql (CHANGE-2046)
+    // Data Center API v2 still uses /search
+    return this.apiVersion === "3" ? "/search/jql" : "/search";
+  }
+
   async searchIssues(query: string, maxResults = 20): Promise<JiraSearchResult> {
     let jql = `text ~ "${query.replace(/"/g, '\\"')}" ORDER BY updated DESC`;
     if (this.projectKey) {
       jql = `project = "${this.projectKey}" AND ${jql}`;
     }
     const data: any = await this.request(
-      `/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,description,issuetype,status,assignee,priority,project`
+      `${this.searchEndpoint}?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,description,issuetype,status,assignee,priority,project`
     );
     return {
       issues: (data.issues || []).map((issue: any) => ({
@@ -186,7 +192,7 @@ export class JiraClient {
       ? `project = "${this.projectKey}" ORDER BY updated DESC`
       : `ORDER BY updated DESC`;
     const data: any = await this.request(
-      `/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,description,issuetype,status,assignee,priority,project`
+      `${this.searchEndpoint}?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,description,issuetype,status,assignee,priority,project`
     );
     return {
       issues: (data.issues || []).map((issue: any) => ({

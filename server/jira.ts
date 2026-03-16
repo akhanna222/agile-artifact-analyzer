@@ -296,15 +296,20 @@ export class JiraClient {
         updateFields.description = fields.description;
       } else {
         // Cloud API v3: Atlassian Document Format (ADF)
+        // Split on double newlines for paragraphs, single newlines for hard breaks
+        const paragraphs = fields.description.split(/\n{2,}/);
         updateFields.description = {
           type: "doc",
           version: 1,
-          content: [{
-            type: "paragraph",
-            content: fields.description.trim()
-              ? [{ type: "text", text: fields.description }]
-              : [],
-          }],
+          content: paragraphs.map(para => {
+            const lines = para.split("\n");
+            const content: any[] = [];
+            lines.forEach((line, i) => {
+              if (line) content.push({ type: "text", text: line });
+              if (i < lines.length - 1 && line) content.push({ type: "hardBreak" });
+            });
+            return { type: "paragraph", content: content.length ? content : [] };
+          }).filter(p => p.content.length > 0),
         };
       }
     }

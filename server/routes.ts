@@ -535,19 +535,22 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/jira/issue/:key/writeback — write analysis results back to Jira as a comment + label
+  // POST /api/jira/issue/:key/writeback — write analysis results back to Jira as a comment + label + optional description update
   app.post("/api/jira/issue/:key/writeback", requireAuth, async (req, res) => {
     try {
       const userId = req.session?.userId!;
       const client = await getJiraClient(userId);
       if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
-      const { score, summary, categories, addLabel } = req.body;
+      const { score, summary, categories, addLabel, updateDescription, improvedVersion } = req.body;
       if (typeof score !== "number" || !summary) {
         return res.status(400).json({ error: "score and summary are required" });
       }
       await client.addComment(req.params.key, score, summary, categories || []);
       if (addLabel) {
         await client.updateIssueLabel(req.params.key, score);
+      }
+      if (updateDescription && improvedVersion) {
+        await client.updateIssue(req.params.key, { description: improvedVersion });
       }
       res.json({ success: true });
     } catch (error: any) {

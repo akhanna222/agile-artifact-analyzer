@@ -154,6 +154,7 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
   const [jiraDialogOpen, setJiraDialogOpen] = useState(false);
   const [jiraKey, setJiraKey] = useState(() => extractJiraKey(analysis.title));
   const [addLabel, setAddLabel] = useState(true);
+  const [updateDescription, setUpdateDescription] = useState(false);
   const { toast } = useToast();
 
   const { data: jiraStatus } = useQuery<{ connected: boolean; baseUrl?: string }>({
@@ -167,11 +168,15 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
         summary: results.summary,
         categories: results.categories,
         addLabel,
+        updateDescription,
+        improvedVersion: results.improvedVersion,
       }),
     onSuccess: () => {
       toast({
         title: "Written to Jira",
-        description: `Analysis results posted to ${jiraKey.toUpperCase()} as a comment.`,
+        description: updateDescription
+          ? `Score, comment, and improved description posted to ${jiraKey.toUpperCase()}.`
+          : `Analysis results posted to ${jiraKey.toUpperCase()} as a comment.`,
       });
       setJiraDialogOpen(false);
       setJiraKey("");
@@ -267,12 +272,28 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
               />
               Add quality label ({results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"})
             </label>
+            {results.improvedVersion && (
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={updateDescription}
+                  onChange={e => setUpdateDescription(e.target.checked)}
+                  className="rounded mt-0.5"
+                  data-testid="checkbox-update-description"
+                />
+                <span>
+                  <span className="font-medium">Replace description with improved version</span>
+                  <span className="block text-gray-500 text-xs mt-0.5">Overwrites the current Jira description with the AI-improved artifact text</span>
+                </span>
+              </label>
+            )}
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-xs space-y-1">
               <p className="font-medium text-gray-700 dark:text-gray-300">What will be posted:</p>
               <p className="text-gray-500">• Overall score: {results.overallScore}/100</p>
               <p className="text-gray-500">• AI summary paragraph</p>
               <p className="text-gray-500">• Category breakdown ({results.categories?.length || 0} categories)</p>
               {addLabel && <p className="text-gray-500">• Label: {results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"}</p>}
+              {updateDescription && <p className="text-orange-600 dark:text-orange-400">• Description replaced with improved version</p>}
             </div>
           </div>
           <DialogFooter>

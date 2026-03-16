@@ -181,7 +181,7 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
   const [jiraDialogOpen, setJiraDialogOpen] = useState(false);
   const [jiraKey, setJiraKey] = useState(() => extractJiraKey(analysis.title));
   const [addLabel, setAddLabel] = useState(true);
-  const [updateDescription, setUpdateDescription] = useState(false);
+  const [updateDescription, setUpdateDescription] = useState(true);
   const [renameTitle, setRenameTitle] = useState(false);
   const extractedTitle = results.improvedVersion
     ? extractTitleFromImproved(results.improvedVersion, analysis.type)

@@ -413,6 +413,7 @@ export async function registerRoutes(
         connected: true,
         baseUrl: conn.baseUrl,
         email: conn.email,
+        apiToken: conn.apiToken,
         projectKey: conn.projectKey,
       });
     } catch (error) {

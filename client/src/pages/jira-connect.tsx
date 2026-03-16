@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 interface AuthUser { id: number; email: string; isAdmin: boolean; }
-interface JiraStatus { connected: boolean; baseUrl?: string; email?: string; projectKey?: string; }
+interface JiraStatus { connected: boolean; baseUrl?: string; email?: string; apiToken?: string; projectKey?: string; }
 interface JiraIssue {
   key: string; summary: string; description: string; issueType: string;
   status: string; assignee: string | null; priority: string | null;
@@ -261,6 +261,16 @@ export default function JiraConnect() {
     queryKey: ["/api/jira/status"],
   });
 
+  // Pre-fill form fields from saved connection whenever status loads
+  useEffect(() => {
+    if (jiraStatus?.connected) {
+      if (jiraStatus.baseUrl) setBaseUrl(jiraStatus.baseUrl);
+      if (jiraStatus.email) setEmail(jiraStatus.email);
+      if (jiraStatus.apiToken) setApiToken(jiraStatus.apiToken);
+      if (jiraStatus.projectKey) setProjectKey(jiraStatus.projectKey);
+    }
+  }, [jiraStatus?.connected]);
+
   // Auto-switch to Browse tab when already connected
   useEffect(() => {
     if (jiraStatus?.connected && activeTab === "connect") {
@@ -449,6 +459,11 @@ export default function JiraConnect() {
                     <Label htmlFor="jira-token">API Token <span className="text-red-500">*</span></Label>
                     <Input id="jira-token" type="password" placeholder="Paste your Jira API token here"
                       value={apiToken} onChange={e => setApiToken(e.target.value)} data-testid="input-jira-token" />
+                    {jiraStatus?.connected && apiToken && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Saved — update only if you want to use a new token
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="jira-project">

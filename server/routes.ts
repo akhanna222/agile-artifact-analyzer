@@ -178,35 +178,42 @@ A Task is a specific, technical piece of work that a single team member can comp
 
 ${guidelines}
 
+=== SENSIBILITY & GROUNDING RULES (MANDATORY) ===
+1. FINDINGS must be grounded in the actual submitted text ONLY. Only flag something as missing if it is genuinely required for this artifact type AND is absent from what was submitted.
+2. DO NOT penalise an artifact for context that was never part of the submission — e.g. do not dock a standalone story for lacking an explicit parent Epic reference if none was submitted. Mention it as a suggestion only, not a primary finding.
+3. DO NOT fabricate context: do not invent parent Epic names, stakeholder names, system names, team names, technology stacks, API names, business rules, or any detail not present in the original. If a suggestion requires unknown context, use descriptive placeholders: [Parent Epic Name], [Auth Service], [Business Owner].
+4. SCOPE your findings to the artifact level. A Story is not an Epic; do not apply Epic-level requirements (Lean Business Case, PI sizing) to a story.
+5. SDLC READINESS: evaluate each artifact for its full delivery lifecycle readiness — Definition of Ready (can a team pick this up?), sprint execution clarity, testing strategy, Definition of Done, and operational/release considerations.
+
 === OUTPUT FORMAT ===
 Return your analysis as a valid JSON object with exactly this structure:
 {
   "overallScore": <number 0-100>,
-  "summary": "<2-3 sentence executive summary of the artifact's quality, citing the most critical strengths and weaknesses>",
+  "summary": "<2-3 sentence executive summary citing the most critical strengths and weaknesses based only on what is present in the submitted text>",
   "categories": [
     {
       "name": "<category name>",
       "score": <number 0-100>,
       "status": "<pass|warning|fail>",
-      "findings": ["<specific finding citing the exact text or absence that led to this score>"],
-      "suggestions": ["<actionable, specific suggestion with an example of what good looks like>"]
+      "findings": ["<specific finding quoting or referencing the exact text or gap that led to this score — no invented context>"],
+      "suggestions": ["<actionable suggestion with a concrete example. Use [placeholder] for unknown context, never invent specifics>"]
     }
   ],
-  "improvedVersion": "<completely rewritten version of the ${type} that addresses all findings and follows all guardrails above>",
-  "clarity": <number 0-100, how clear and unambiguous the artifact is>,
-  "completeness": <number 0-100, how complete the artifact is with all required elements>,
-  "acceptanceCriteriaPresent": <boolean, true if acceptance criteria are explicitly defined>,
-  "userRoleDefined": <boolean, true if a specific user role or persona is identified>,
-  "businessValueClear": <boolean, true if business value or benefit is clearly articulated>,
-  "complexity": "<Low|Medium|High, estimated implementation complexity>",
-  "riskLevel": "<Low|Medium|High, estimated risk level based on dependencies, unknowns, and technical challenges>"${type === 'story' ? `,
+  "improvedVersion": "<placeholder — will be replaced by judge pass>",
+  "clarity": <number 0-100>,
+  "completeness": <number 0-100>,
+  "acceptanceCriteriaPresent": <boolean>,
+  "userRoleDefined": <boolean>,
+  "businessValueClear": <boolean>,
+  "complexity": "<Low|Medium|High>",
+  "riskLevel": "<Low|Medium|High>"${type === 'story' ? `,
   "investScores": {
-    "independent": <number 0-100, how independent this story is from other stories>,
-    "negotiable": <number 0-100, how negotiable the implementation details are>,
-    "valuable": <number 0-100, how much end-user value this story delivers>,
-    "estimable": <number 0-100, how estimable this story is by the team>,
-    "small": <number 0-100, how well-sized this story is for a single sprint>,
-    "testable": <number 0-100, how testable the acceptance criteria are>
+    "independent": <number 0-100>,
+    "negotiable": <number 0-100>,
+    "valuable": <number 0-100>,
+    "estimable": <number 0-100>,
+    "small": <number 0-100>,
+    "testable": <number 0-100>
   }` : ''}
 }
 
@@ -217,40 +224,68 @@ Return your analysis as a valid JSON object with exactly this structure:
 - 50-64 "warning": Significant issues. Multiple mandatory elements missing or major anti-patterns present.
 - 0-49 "fail": Not ready. Fundamental problems that must be resolved before the artifact can be used.
 
-Be rigorous. Do NOT inflate scores. A ${type} missing mandatory elements should not score above 70 regardless of what it does well.
+SCORING DISCIPLINE:
+- Do NOT inflate scores. A ${type} missing mandatory elements should not score above 70 regardless of what it does well.
+- Missing optional context (e.g. parent Epic for a standalone story) should cost at most 5-10 points, not 30-40 points.
+- Score what IS there, and penalise proportionally for what is genuinely absent and required.
 
 === CATEGORIES TO EVALUATE ===
 ${type === 'epic' ? '1. Business Value & Strategic Alignment (Lean Business Case, OKR linkage)\n2. Scope & Boundaries (In/Out of scope clarity)\n3. Success Criteria & KPIs (Measurable outcomes)\n4. Feature Decomposition Readiness (Can it be broken into 3-8 Features?)\n5. Risk, Dependencies & Sizing (Cross-team risks, T-shirt sizing)' : ''}
 ${type === 'feature' ? '1. Benefit Hypothesis & User Value (Clear capability with measurable benefit)\n2. Strategic Alignment (Parent Epic linkage, portfolio traceability)\n3. Acceptance Criteria & Definition of Done (Business-level verifiable conditions)\n4. Story Decomposition Readiness (Can it be broken into 3-10 Stories?)\n5. Non-Functional Requirements & Dependencies (NFRs, enablers, blockers)' : ''}
 ${type === 'story' ? '1. Story Format & Structure (As a / I want / So that)\n2. INVEST: Independence & Negotiability (No hard dependencies, conversation-ready)\n3. INVEST: Value & Estimability (End-user value, team can estimate)\n4. INVEST: Small & Sized (Fits in one sprint, properly pointed)\n5. Testability & Acceptance Criteria (Given/When/Then, edge cases, DoD)' : ''}
 ${type === 'task' ? '1. Clarity & Technical Specification (Unambiguous, specific action)\n2. Parent Story Linkage & Context (Traceability to user value)\n3. Effort Estimation & Sizing (Hours-based, 1-16h range)\n4. Completion Criteria (Binary done/not-done definition)\n5. Dependencies & Technical Approach (Blockers identified, approach outlined)' : ''}
-
-=== IMPROVED VERSION REQUIREMENTS ===
-The improved version MUST:
-- Fix every issue identified in the findings
-- Follow all mandatory elements listed above
-- Include all missing sections
-- Remove all anti-patterns
-- Be production-ready and immediately usable by a Scrum team
 ${referenceContext ? `
 === COMPANY REFERENCE STANDARDS ===
-The following are excerpts from internal company documentation. Use these to verify the artifact against company-specific standards. When referencing these standards in your analysis, cite them using the format [DocName, Page X].
+The following are excerpts from internal company documentation. Verify the artifact against these standards. Cite them using [DocName, Page X].
 
 ${referenceContext}
 
-In your JSON output, include a "references" array listing the documents you referenced:
+In your JSON output, include a "references" array:
 "references": [
   {
     "docName": "<document name>",
     "pageNumber": <page number>,
-    "excerpt": "<brief relevant excerpt from the reference>",
-    "relevance": "<how this reference applies to the artifact being analyzed>"
+    "excerpt": "<brief relevant excerpt>",
+    "relevance": "<how this applies to the artifact>"
   }
 ]
 ` : ''}
 Here is the ${type.toUpperCase()} to analyze:
 
 ${content}`;
+}
+
+function getJudgePrompt(type: string, original: string, initialImproved: string, allFindings: string[]): string {
+  return `You are a senior SDLC quality judge and agile delivery expert. You are reviewing a first-draft AI-improved ${type} artifact and your job is to produce the final, polished version.
+
+ORIGINAL ${type.toUpperCase()} (submitted by user):
+---
+${original}
+---
+
+FIRST-DRAFT IMPROVED VERSION (needs your review):
+---
+${initialImproved}
+---
+
+ISSUES IDENTIFIED IN THE ORIGINAL:
+${allFindings.length > 0 ? allFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') : 'See general artifact quality issues above.'}
+
+YOUR INSTRUCTIONS:
+1. PRESERVE ALL CONCRETE DETAILS from the original — system names, API endpoints, enum values, business rules, team names, technology names, user roles, and any specific constraints or conditions. Do NOT replace or remove them.
+2. FIX ALL IDENTIFIED ISSUES — address every finding listed above structurally and substantively.
+3. NO FABRICATION — do not invent parent Epics, stakeholder names, system names, or any context not present in the original. Use [Parent Epic Name], [System Name], [Team Name] as placeholders where context is genuinely unknown.
+4. SDLC COMPLETENESS — the output must cover the full delivery lifecycle:
+   - Definition of Ready: can a Scrum team pick this up immediately?
+   - Acceptance Criteria: Given/When/Then format, covering happy path, error paths, boundary conditions, and edge cases
+   - Definition of Done: explicit conditions including tests, code review, deployment, documentation
+   - NFRs: call out security, performance, accessibility, compliance requirements relevant to this artifact
+   - Dependencies & assumptions: what must be true or done before this can be delivered?
+   - Testing strategy: what types of tests are needed (unit, integration, E2E, contract, UAT)?
+5. SCOPE APPROPRIATE — match the detail level to the artifact type. A task should be hours-scoped. A story should be sprint-scoped. Do not over-engineer.
+6. IMMEDIATELY USABLE — a Scrum team must be able to take this into sprint planning without asking clarifying questions.
+
+Return ONLY the final improved ${type} text. No preamble, no explanation, no JSON, no markdown heading that says "Improved Version". Just the polished, production-ready artifact text.`;
 }
 
 export async function registerRoutes(
@@ -299,22 +334,23 @@ export async function registerRoutes(
         try {
           console.log(`[Analysis ${analysis.id}] Starting background processing...`);
           const { context: refContext, refs } = await getRelevantReferences(analysis.content, analysis.type);
-          console.log(`[Analysis ${analysis.id}] Got ${refs.length} references, calling OpenAI...`);
+          console.log(`[Analysis ${analysis.id}] Got ${refs.length} references, calling OpenAI (gpt-4.1)...`);
           const prompt = getAnalysisPrompt(analysis.type, analysis.content, refContext || undefined);
 
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 90000);
+          // — Pass 1: Analysis + initial improved version —
+          const controller1 = new AbortController();
+          const timeoutId1 = setTimeout(() => controller1.abort(), 65000);
           const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4.1",
             messages: [
-              { role: "system", content: "You are a senior Agile Coach (CSP, SAFe SPC) who rigorously evaluates agile artifacts against Scrum, SAFe, and industry-standard methodologies. You never inflate scores. You always respond with valid JSON only, no markdown formatting. Be concise." },
+              { role: "system", content: "You are a senior Agile Coach (CSP, SAFe SPC) who rigorously evaluates agile artifacts against Scrum, SAFe, and industry-standard methodologies. Ground every finding in the submitted text only — never fabricate context. You never inflate scores. Respond with valid JSON only, no markdown." },
               { role: "user", content: prompt },
             ],
             max_completion_tokens: 4096,
             response_format: { type: "json_object" },
-          }, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          console.log(`[Analysis ${analysis.id}] OpenAI response received`);
+          }, { signal: controller1.signal });
+          clearTimeout(timeoutId1);
+          console.log(`[Analysis ${analysis.id}] Pass 1 (analysis) complete`);
 
           const resultText = response.choices[0]?.message?.content || "{}";
           let parsedResult;
@@ -359,12 +395,44 @@ export async function registerRoutes(
             results.references = refs.map(r => ({ ...r, relevance: "Semantically similar reference from company standards" }));
           }
 
+          // — Pass 2: Judge LLM — refine the improved version with SDLC focus —
+          const initialImproved = typeof results.improvedVersion === "string"
+            ? results.improvedVersion
+            : results.improvedVersion ? JSON.stringify(results.improvedVersion) : "";
+          const allFindings = (results.categories || []).flatMap((c: any) =>
+            Array.isArray(c.findings) ? c.findings : []
+          );
+
+          if (initialImproved) {
+            try {
+              console.log(`[Analysis ${analysis.id}] Pass 2 (judge refinement) starting...`);
+              const controller2 = new AbortController();
+              const timeoutId2 = setTimeout(() => controller2.abort(), 65000);
+              const judgeResponse = await openai.chat.completions.create({
+                model: "gpt-4.1",
+                messages: [
+                  { role: "system", content: "You are an expert SDLC quality judge. You refine agile artifact drafts to be SDLC-complete and immediately sprint-ready. You never invent context not present in the original. Return only the artifact text, no commentary." },
+                  { role: "user", content: getJudgePrompt(analysis.type, analysis.content, initialImproved, allFindings) },
+                ],
+                max_completion_tokens: 4096,
+              }, { signal: controller2.signal });
+              clearTimeout(timeoutId2);
+              const refinedVersion = judgeResponse.choices[0]?.message?.content?.trim();
+              if (refinedVersion) {
+                results.improvedVersion = refinedVersion;
+                console.log(`[Analysis ${analysis.id}] Pass 2 (judge) complete — improved version refined`);
+              }
+            } catch (judgeErr: any) {
+              console.warn(`[Analysis ${analysis.id}] Judge pass failed (using pass-1 version): ${judgeErr.message}`);
+            }
+          }
+
           const usage = response.usage;
           const tokenUsage = usage ? {
             promptTokens: usage.prompt_tokens || 0,
             completionTokens: usage.completion_tokens || 0,
             totalTokens: usage.total_tokens || 0,
-            model: response.model || "gpt-5.2",
+            model: response.model || "gpt-4.1",
           } : undefined;
 
           await storage.updateAnalysisResults(

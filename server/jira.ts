@@ -86,6 +86,7 @@ export class JiraClient {
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}/rest/api/${this.apiVersion}${path}`;
+    console.log(`[Jira] ${options.method || "GET"} ${url} type=${this.jiraType}`);
     const response = await fetch(url, {
       ...options,
       headers: {

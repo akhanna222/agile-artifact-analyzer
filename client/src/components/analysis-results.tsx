@@ -144,9 +144,10 @@ function CategoryScoreBar({ score }: { score: number }) {
   );
 }
 
-function extractTitleFromImproved(improvedVersion: string, type: string): string {
+function extractTitleFromImproved(improvedVersion: unknown, type: string): string {
   if (!improvedVersion) return "";
-  const lines = improvedVersion.split("\n").map(l => l.trim()).filter(Boolean);
+  const text = typeof improvedVersion === "string" ? improvedVersion : JSON.stringify(improvedVersion);
+  const lines = text.split("\n").map((l: string) => l.trim()).filter(Boolean);
   if (!lines.length) return "";
 
   // Strip markdown heading markers

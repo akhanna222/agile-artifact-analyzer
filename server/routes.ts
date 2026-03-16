@@ -541,11 +541,14 @@ export async function registerRoutes(
       const userId = req.session?.userId!;
       const client = await getJiraClient(userId);
       if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
-      const { score, summary, categories, addLabel, updateDescription, improvedVersion } = req.body;
+      const { score, summary, categories, addLabel, updateDescription } = req.body;
+      const improvedVersion: string | undefined = req.body.improvedVersion
+        ? (typeof req.body.improvedVersion === "string" ? req.body.improvedVersion : JSON.stringify(req.body.improvedVersion))
+        : undefined;
       if (typeof score !== "number" || !summary) {
         return res.status(400).json({ error: "score and summary are required" });
       }
-      await client.addComment(req.params.key, score, summary, categories || [], improvedVersion || undefined);
+      await client.addComment(req.params.key, score, summary, categories || [], improvedVersion);
       if (addLabel) {
         await client.updateIssueLabel(req.params.key, score);
       }

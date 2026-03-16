@@ -240,9 +240,10 @@ export class JiraClient {
       ];
 
       if (improvedVersion) {
+        const improvedStr = typeof improvedVersion === "string" ? improvedVersion : String(improvedVersion);
         sections.push("");
         sections.push("━━━ Improved Version ━━━");
-        sections.push(improvedVersion);
+        sections.push(improvedStr);
       }
 
       sections.push("");
@@ -308,7 +309,8 @@ export class JiraClient {
         attrs: { level: 4 },
         content: [{ type: "text", text: "Improved Version" }],
       });
-      const paragraphs = improvedVersion.split(/\n{2,}/);
+      const improvedStr = typeof improvedVersion === "string" ? improvedVersion : String(improvedVersion);
+      const paragraphs = improvedStr.split(/\n{2,}/);
       paragraphs.forEach(para => {
         const lines = para.split("\n");
         const content: any[] = [];
@@ -371,7 +373,8 @@ export class JiraClient {
       } else {
         // Cloud API v3: Atlassian Document Format (ADF)
         // Split on double newlines for paragraphs, single newlines for hard breaks
-        const paragraphs = fields.description.split(/\n{2,}/);
+        const descStr = typeof fields.description === "string" ? fields.description : String(fields.description);
+        const paragraphs = descStr.split(/\n{2,}/);
         updateFields.description = {
           type: "doc",
           version: 1,

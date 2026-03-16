@@ -98,6 +98,7 @@ export class JiraClient {
 
     if (!response.ok) {
       const body = await response.text();
+      console.error(`[Jira] ${options.method || "GET"} ${url} → ${response.status}`, body.slice(0, 500));
       let detail = body;
       try { detail = JSON.parse(body)?.errorMessages?.join(", ") || JSON.parse(body)?.message || body; } catch {}
 

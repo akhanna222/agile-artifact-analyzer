@@ -205,6 +205,7 @@ export default function Admin() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [createdUser, setCreatedUser] = useState<CreatedUser | null>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
@@ -214,16 +215,21 @@ export default function Admin() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { email: string; isAdmin: boolean }) => {
+    mutationFn: async (data: { email: string; isAdmin: boolean; password?: string }) => {
       const res = await apiRequest("POST", "/api/admin/users", data);
       return res.json();
     },
     onSuccess: (data: CreatedUser) => {
+      toast({
+        title: "User created successfully",
+        description: `${data.email} — password: ${data.generatedPassword}`,
+        duration: 8000,
+      });
       setCreatedUser(data);
       setEmail("");
+      setPassword("");
       setIsAdmin(false);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({ title: "User created successfully" });
     },
     onError: (error: Error) => {
       toast({
@@ -260,7 +266,7 @@ export default function Admin() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setCreatedUser(null);
-    createMutation.mutate({ email, isAdmin });
+    createMutation.mutate({ email, isAdmin, password: password.trim() || undefined });
   };
 
   return (
@@ -330,6 +336,19 @@ export default function Admin() {
                         data-testid="input-admin-email"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">Password</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Leave blank to auto-generate"
+                        minLength={password.length > 0 ? 6 : undefined}
+                        data-testid="input-admin-password"
+                      />
+                      <p className="text-xs text-muted-foreground">Minimum 6 characters. Leave blank to auto-generate a secure password.</p>
+                    </div>
                     <div className="flex items-center gap-3">
                       <Switch
                         id="admin-toggle"
@@ -350,7 +369,7 @@ export default function Admin() {
                       ) : (
                         <UserPlus className="w-4 h-4 mr-2" />
                       )}
-                      Create User & Generate Password
+                      {password.trim() ? "Create User" : "Create User & Generate Password"}
                     </Button>
                   </form>
 

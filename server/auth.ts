@@ -127,9 +127,12 @@ export function registerAuthRoutes(app: Express) {
 
   app.post("/api/admin/users", requireAdmin, async (req, res) => {
     try {
-      const { email, isAdmin } = req.body;
+      const { email, isAdmin, password: providedPassword } = req.body;
       if (!email) {
         return res.status(400).json({ error: "Email is required" });
+      }
+      if (providedPassword !== undefined && providedPassword !== "" && typeof providedPassword === "string" && providedPassword.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
       }
 
       const existing = await storage.getUserByEmail(email);
@@ -137,7 +140,7 @@ export function registerAuthRoutes(app: Express) {
         return res.status(409).json({ error: "User with this email already exists" });
       }
 
-      const plainPassword = generatePassword();
+      const plainPassword = (providedPassword && providedPassword.trim()) ? providedPassword.trim() : generatePassword();
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
       const user = await storage.createUser({

@@ -144,10 +144,15 @@ function CategoryScoreBar({ score }: { score: number }) {
   );
 }
 
+function extractJiraKey(title: string): string {
+  const match = title.match(/^\[([A-Z][A-Z0-9]*-\d+)\]/);
+  return match ? match[1] : "";
+}
+
 export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsProps) {
   const [copiedImproved, setCopiedImproved] = useState(false);
   const [jiraDialogOpen, setJiraDialogOpen] = useState(false);
-  const [jiraKey, setJiraKey] = useState("");
+  const [jiraKey, setJiraKey] = useState(() => extractJiraKey(analysis.title));
   const [addLabel, setAddLabel] = useState(true);
   const { toast } = useToast();
 
@@ -246,6 +251,11 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
                 onKeyDown={e => e.key === "Enter" && jiraKey.trim() && writebackMutation.mutate()}
                 data-testid="input-jira-issue-key"
               />
+              {extractJiraKey(analysis.title) && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Auto-detected from imported story
+                </p>
+              )}
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input

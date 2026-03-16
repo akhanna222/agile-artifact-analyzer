@@ -511,6 +511,23 @@ export async function registerRoutes(
     }
   });
 
+  // PUT /api/jira/issue/:key — update Jira issue summary and/or description
+  app.put("/api/jira/issue/:key", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId!;
+      const client = await getJiraClient(userId);
+      if (!client) return res.status(404).json({ error: "No Jira connection found. Please connect first." });
+      const { summary, description } = req.body;
+      if (!summary && description === undefined) {
+        return res.status(400).json({ error: "At least one field (summary or description) is required" });
+      }
+      await client.updateIssue(req.params.key, { summary, description });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to update issue" });
+    }
+  });
+
   // POST /api/jira/issue/:key/writeback — write analysis results back to Jira as a comment + label
   app.post("/api/jira/issue/:key/writeback", requireAuth, async (req, res) => {
     try {

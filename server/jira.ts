@@ -236,6 +236,31 @@ export class JiraClient {
     });
   }
 
+  async updateIssue(issueKey: string, fields: { summary?: string; description?: string }): Promise<void> {
+    const updateFields: any = {};
+    if (fields.summary !== undefined) {
+      updateFields.summary = fields.summary;
+    }
+    if (fields.description !== undefined) {
+      updateFields.description = {
+        type: "doc",
+        version: 1,
+        content: [
+          {
+            type: "paragraph",
+            content: fields.description.trim()
+              ? [{ type: "text", text: fields.description }]
+              : [],
+          },
+        ],
+      };
+    }
+    await this.request(`/issue/${issueKey}`, {
+      method: "PUT",
+      body: JSON.stringify({ fields: updateFields }),
+    });
+  }
+
   async updateIssueLabel(issueKey: string, score: number): Promise<void> {
     const label = score >= 75 ? "quality-high" : score >= 50 ? "quality-medium" : "quality-low";
     const issue: any = await this.request(`/issue/${issueKey}?fields=labels`);

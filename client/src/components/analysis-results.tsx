@@ -144,6 +144,33 @@ function CategoryScoreBar({ score }: { score: number }) {
   );
 }
 
+function extractTitleFromImproved(improvedVersion: string, type: string): string {
+  if (!improvedVersion) return "";
+  const lines = improvedVersion.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return "";
+
+  // Strip markdown heading markers
+  const clean = (s: string) => s.replace(/^#+\s*/, "").replace(/^\*+|\*+$/g, "").trim();
+
+  for (const line of lines) {
+    const c = clean(line);
+    if (!c) continue;
+
+    // Skip label-only lines like "Title:", "Epic:", "Feature:"
+    if (/^(title|epic|feature|story|task|name|summary)\s*:/i.test(c) && c.length < 30) continue;
+
+    // For "As a..." stories — use the whole first line, it IS the title
+    if (/^as a\b/i.test(c)) {
+      return c.length > 200 ? c.slice(0, 197) + "..." : c;
+    }
+
+    // Strip inline label prefix like "Title: My Epic Name"
+    const withoutLabel = c.replace(/^(title|epic|feature|story|task|name|summary)\s*:\s*/i, "");
+    return withoutLabel.length > 200 ? withoutLabel.slice(0, 197) + "..." : withoutLabel;
+  }
+  return "";
+}
+
 function extractJiraKey(title: string): string {
   const match = title.match(/^\[([A-Z][A-Z0-9]*-\d+)\]/);
   return match ? match[1] : "";
@@ -155,6 +182,10 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
   const [jiraKey, setJiraKey] = useState(() => extractJiraKey(analysis.title));
   const [addLabel, setAddLabel] = useState(true);
   const [updateDescription, setUpdateDescription] = useState(false);
+  const [renameTitle, setRenameTitle] = useState(false);
+  const extractedTitle = results.improvedVersion
+    ? extractTitleFromImproved(results.improvedVersion, analysis.type)
+    : "";
   const { toast } = useToast();
 
   const { data: jiraStatus } = useQuery<{ connected: boolean; baseUrl?: string }>({
@@ -170,13 +201,15 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
         addLabel,
         updateDescription,
         improvedVersion: results.improvedVersion,
+        newSummary: renameTitle && extractedTitle ? extractedTitle : undefined,
       }),
     onSuccess: () => {
+      const parts = ["Analysis results posted"];
+      if (updateDescription) parts.push("description updated");
+      if (renameTitle && extractedTitle) parts.push("title renamed");
       toast({
         title: "Written to Jira",
-        description: updateDescription
-          ? `Score, comment, and improved description posted to ${jiraKey.toUpperCase()}.`
-          : `Analysis results posted to ${jiraKey.toUpperCase()} as a comment.`,
+        description: `${parts.join(", ")} on ${jiraKey.toUpperCase()}.`,
       });
       setJiraDialogOpen(false);
       setJiraKey("");
@@ -288,6 +321,27 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
                 </span>
               </label>
             )}
+            {results.improvedVersion && extractedTitle && (
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={renameTitle}
+                  onChange={e => setRenameTitle(e.target.checked)}
+                  className="rounded mt-0.5"
+                  data-testid="checkbox-rename-title"
+                />
+                <span>
+                  <span className="font-medium">Rename issue title from improved version</span>
+                  <span className="block text-gray-500 text-xs mt-0.5">Updates the Jira issue summary/title field</span>
+                  {renameTitle && (
+                    <span className="block mt-1.5 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded px-2 py-1 text-xs text-amber-800 dark:text-amber-200">
+                      <span className="font-semibold block mb-0.5">New title preview:</span>
+                      "{extractedTitle}"
+                    </span>
+                  )}
+                </span>
+              </label>
+            )}
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-xs space-y-1">
               <p className="font-medium text-gray-700 dark:text-gray-300">Comment will include:</p>
               <p className="text-gray-500">• Overall score: {results.overallScore}/100 ({results.overallScore >= 75 ? "High Quality" : results.overallScore >= 50 ? "Needs Improvement" : "Low Quality"})</p>
@@ -296,6 +350,7 @@ export function AnalysisResults({ analysis, results, onBack }: AnalysisResultsPr
               {results.improvedVersion && <p className="text-green-600 dark:text-green-400">• Full improved version text</p>}
               {addLabel && <p className="text-gray-500">• Label: {results.overallScore >= 75 ? "quality-high" : results.overallScore >= 50 ? "quality-medium" : "quality-low"}</p>}
               {updateDescription && <p className="text-orange-600 dark:text-orange-400">• Description also replaced with improved version</p>}
+              {renameTitle && extractedTitle && <p className="text-amber-600 dark:text-amber-400">• Issue title renamed to AI-improved version</p>}
             </div>
           </div>
           <DialogFooter>

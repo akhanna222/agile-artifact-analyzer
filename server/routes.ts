@@ -545,6 +545,9 @@ export async function registerRoutes(
       const improvedVersion: string | undefined = req.body.improvedVersion
         ? (typeof req.body.improvedVersion === "string" ? req.body.improvedVersion : JSON.stringify(req.body.improvedVersion))
         : undefined;
+      const newSummary: string | undefined = req.body.newSummary
+        ? (typeof req.body.newSummary === "string" ? req.body.newSummary : undefined)
+        : undefined;
       if (typeof score !== "number" || !summary) {
         return res.status(400).json({ error: "score and summary are required" });
       }
@@ -552,10 +555,13 @@ export async function registerRoutes(
       if (addLabel) {
         await client.updateIssueLabel(req.params.key, score);
       }
-      if (updateDescription && improvedVersion) {
-        await client.updateIssue(req.params.key, { description: improvedVersion });
+      const issueUpdates: { summary?: string; description?: string } = {};
+      if (updateDescription && improvedVersion) issueUpdates.description = improvedVersion;
+      if (newSummary) issueUpdates.summary = newSummary;
+      if (Object.keys(issueUpdates).length > 0) {
+        await client.updateIssue(req.params.key, issueUpdates);
       }
-      res.json({ success: true });
+      res.json({ success: true, renamed: !!newSummary, descriptionUpdated: !!(updateDescription && improvedVersion) });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Write-back failed" });
     }
